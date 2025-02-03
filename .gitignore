@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+pnpm-lock.yaml
+
+# TypeScript
+dist/
+build/
+
+# Logs
+*.log
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+
+# Environment Files
+.env
+.env.local
+.env.*.local
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Jest coverage directory
+coverage/
+
+# Optional npm cache directory
+.npm/
+
+# Apollo Server specific (if you're using Apollo)
+apollo.cache/
+
+# Temporary files
+temp/
