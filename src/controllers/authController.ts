@@ -1,20 +1,21 @@
 import pool from "../config/database";
 import crypto from "crypto";
 import { Request, Response } from "express";
+import { sendOtpSchema, verifyOtpSchema } from "../validations/authcontroller_validation";
+import { QueryResult } from "pg";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-export const sendOtp = async (req: Request, res: Response): Promise<void> => {
+export const sendOtp = async (req: Request, res: Response): Promise<Response> => {
   console.log(req.body);
+  const validation = sendOtpSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.errors });
+   
+  }
   const { phone } = req.body;
   console.log(req.body);
-
-  if (!phone) {
-    res.status(400).json({ error: "Phone number is required" });
-    return;
-  }
-
   try {
     const userResult = await pool.query(
       "SELECT user_id, status FROM users WHERE phone = $1",
@@ -22,10 +23,10 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     );
 
     let userId;
-    let isNewUser = false;
+    let isNewUser:boolean = false;
 
     if (userResult.rows.length === 0) {
-      const newUser = await pool.query(
+      const newUser:QueryResult<{ user_id: number }> = await pool.query(
         "INSERT INTO users (phone, status) VALUES ($1, 'unverified') RETURNING user_id",
         [phone]
       );
@@ -35,7 +36,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
       userId = userResult.rows[0].user_id;
     }
 
-    const otp = generateOtp();
+    const otp:string = generateOtp();
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // OTP expires in 5 minutes
 
@@ -46,29 +47,27 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
 
     console.log(`✅ OTP for ${phone}:`, otp); // In real case, send via SMS
 
-    res.status(200).json({ message: "OTP sent successfully", isNewUser });
+    return res.status(200).json({ message: "OTP sent successfully", isNewUser });
   } catch (error) {
     console.error("Error in sendOtp:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
-  const { phone, otp } = req.body;
-  if (!phone || !otp) {
-    res.status(400).json({ error: "Phone number and OTP are required" });
-    return;
+export const verifyOtp = async (req: Request, res: Response): Promise<Response> => {
+  const validation = verifyOtpSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.errors });
   }
-
+  const { phone, otp } = req.body;
   try {
-    const userResult = await pool.query(
+    const userResult:QueryResult<{ user_id: number }> = await pool.query(
       "SELECT user_id FROM users WHERE phone = $1",
       [phone]
     );
 
     if (userResult.rows.length === 0) {
-      res.status(404).json({ error: "User not found" });
-      return;
+      return res.status(404).json({ error: "User not found" });
     }
 
     const userId = userResult.rows[0].user_id;
@@ -79,15 +78,13 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     );
 
     if (otpResult.rows.length === 0) {
-      res.status(400).json({ error: "No valid OTP found" });
-      return;
+      return res.status(400).json({ error: "No valid OTP found" });
     }
 
     const { otp_id, otp_code, expires_at } = otpResult.rows[0];
 
     if (new Date(expires_at) < new Date()) {
-      res.status(400).json({ error: "OTP expired" });
-      return;
+      return res.status(400).json({ error: "OTP expired" });
     }
 
     const hashedInputOtp = crypto
@@ -96,8 +93,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       .digest("hex");
 
     if (hashedInputOtp !== otp_code) {
-      res.status(400).json({ error: "Invalid OTP" });
-      return;
+      return res.status(400).json({ error: "Invalid OTP" });
     }
 
     await pool.query("UPDATE otp SET is_used = TRUE WHERE otp_id = $1", [
@@ -111,12 +107,12 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
 
     await pool.query("DELETE FROM otp WHERE otp_id = $1", [otp_id]);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "OTP verified successfully",
       user_id: userId,
     });
   } catch (error) {
     console.error("Error in verifyOtp:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
