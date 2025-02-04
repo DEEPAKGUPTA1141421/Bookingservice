@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { createUsersTable } from "./models/user";
 import { createOtpTable } from "./models/otp";
+import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
 
 const app = express();
@@ -19,6 +20,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/auth", otpRoutes);
+app.use('/location', locationRoutes);
+
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
