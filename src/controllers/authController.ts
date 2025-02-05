@@ -138,26 +138,22 @@ export const editUser = async (req: Request, res: Response): Promise<void> => {
     const { user_id } = req.params;
     let { name, email, phone, password, role } = req.body;
 
-    
     const fieldsToUpdate: Record<string, any> = {};
     if (name?.trim()) fieldsToUpdate.name = name.trim();
     if (email?.trim()) fieldsToUpdate.email = email.trim();
     if (phone?.trim()) fieldsToUpdate.phone = phone.trim();
     if (role) fieldsToUpdate.role = role;
 
-    // Hash password if provided
     if (password) {
       const salt = await bcrypt.genSalt(10);
       fieldsToUpdate.password = await bcrypt.hash(password, salt);
     }
 
-    // Ensure at least one field is provided
     if (Object.keys(fieldsToUpdate).length === 0) {
       res.status(400).json({ error: "No valid fields to update" });
       return;
     }
 
-    // Build query dynamically
     const updateFields = Object.keys(fieldsToUpdate)
       .map((key, idx) => `${key} = $${idx + 1}`)
       .join(", ");
