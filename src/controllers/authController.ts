@@ -177,7 +177,9 @@ export const editUser = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
+// Todo we need to delete many More Things Of That User 
+//we will take care of that, need to verify before delete of the user
+//Send Email and Sms And Doc For The User
 export const deleteUser = async (
   req: Request,
   res: Response

@@ -22,4 +22,6 @@ export const createServiceProvidersTable = async () => {
       console.error("❌ Error creating service_providers table:", error);
     }
 };
+
+
   
