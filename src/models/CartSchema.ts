@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 const { Schema, model, Types } = mongoose;
 
 // Cart Item Schema (Each service added to cart)
-const CartItemSchema = new Schema(
+export const CartItemSchema = new Schema(
   {
     service: { type: Types.ObjectId, ref: "ActualService", required: true }, // FK to Service
     service_option: { type: Types.ObjectId, ref: "ServiceOption", required: true }, // FK to Service Option
@@ -46,6 +46,7 @@ const CartSchema = new Schema(
 CartSchema.index({ user: 1 });
 
 const Cart = model("Cart", CartSchema);
+const CartItem=model("CartItem", CartItemSchema)
 const PromoCode = model("PromoCode", PromoCodeSchema);
 
-export { Cart, PromoCode };
+export {CartItem, Cart, PromoCode };
