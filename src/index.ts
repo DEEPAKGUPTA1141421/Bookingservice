@@ -8,7 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 const port = 4000;
-connectDb()
+
+connectDb();
 
 app.get("/", (req, res) => {
   res.status(200).json({
