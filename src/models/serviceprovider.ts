@@ -1,27 +1,51 @@
-import pool from "../config/database";
-export const createServiceProvidersTable = async () => {
-    const query = `
-      CREATE TABLE IF NOT EXISTS service_providers (
-        name VARCHAR(255),  
-        email VARCHAR(255) UNIQUE,
-        phone VARCHAR(20) UNIQUE NOT NULL,
-        image VARCHAR(255),  
-        role VARCHAR(20) CHECK (role IN ('user', 'provider', 'admin')) DEFAULT 'provider',
-        status VARCHAR(20) CHECK (status IN ('verified', 'unverified')) DEFAULT 'unverified',
-        company_name VARCHAR(255),
-        license_no VARCHAR(50) UNIQUE NOT NULL,
-        rating DECIMAL(3,2) DEFAULT 0.0 CHECK (rating >= 0 AND rating <= 5),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-  
-    try {
-      await pool.query(query);
-      console.log("✅ Service Providers table created successfully!");
-    } catch (error) {
-      console.error("❌ Error creating service_providers table:", error);
+import mongoose from "mongoose";
+
+const { Schema, model } = mongoose;
+
+// Define the Service Provider Schema
+const ServiceProviderSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, unique: true },
+    phone: { type: String, required: true, unique: true },
+    image: { type: String },
+    role: { 
+      type: String, 
+      enum: ['provider'], 
+      default: 'provider' 
+    },
+    status: { 
+      type: String, 
+      enum: ['verified', 'unverified'], 
+      default: 'unverified' 
+    },
+    company_name: { type: String },
+    license_no: { type: String, required: true, unique: true },
+    rating: { 
+      type: Number, 
+      default: 0.0, 
+      min: 0, 
+      max: 5 
+    },
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      country: String,
+      location: {
+        type: { type: String, enum: ["Point"], default: "Point" },
+        coordinates: { type: [Number], required: true }, // [longitude, latitude]
+      },
     }
-};
+  },
+  { timestamps: true,strict: false } // Automatically adds createdAt and updatedAt
+);
 
+// Index for faster querying
+ServiceProviderSchema.index({ email: 1 });
+ServiceProviderSchema.index({ phone: 1 });
+ServiceProviderSchema.index({ license_no: 1 });
 
-  
+const ServiceProvider = model("ServiceProvider", ServiceProviderSchema);
+
+export default ServiceProvider;

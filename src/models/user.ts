@@ -1,22 +1,33 @@
-import pool from "../config/database";
+import mongoose from "mongoose";
 
-export const createUsersTable = async () => {
-  const query = `
-        CREATE TABLE IF NOT EXISTS users (
-        user_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-        name VARCHAR(255),  
-        email VARCHAR(255) UNIQUE,
-        phone VARCHAR(20) UNIQUE NOT NULL,
-        password TEXT,
-        role VARCHAR(20) CHECK (role IN ('user', 'provider', 'admin')) DEFAULT 'user',
-        status VARCHAR(20) CHECK (status IN ('verified', 'unverified')) DEFAULT 'unverified',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  try {
-    await pool.query(query);
-    console.log("✅ Users table created successfully!");
-  } catch (error) {
-    console.error("❌ Error creating users table:", error);
+const UserSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: { type: String, unique: true },
+    phone: { type: String, unique: true, required: true },
+    role: { type: String, enum: ["user", "provider", "admin"], default: "user" },
+    status: { type: String, enum: ["verified", "unverified"], default: "unverified" },
+    image:{type:String},
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      country: String,
+      location: {
+        type: { type: String, enum: ["Point"], default: "Point" },
+        coordinates: { type: [Number], required: true }, // [longitude, latitude]
+      },
+    },
+  },
+  { 
+    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    strict: false // Allows additional fields not defined in schema
   }
-};
+);
+
+// Indexing
+UserSchema.index({ "address.location": "2dsphere" }); // Geospatial index
+UserSchema.index({ _id: 1 }); // Explicitly indexing _id
+
+const User = mongoose.model("User", UserSchema);
+export default User;

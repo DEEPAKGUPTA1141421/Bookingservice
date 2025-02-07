@@ -1,20 +1,22 @@
-import pool from "../config/database";
+import mongoose from "mongoose";
 
-export const createOtpTable = async () => {
-  const query = `
-    CREATE TABLE IF NOT EXISTS otp (
-      otp_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-      user_id UUID REFERENCES users(user_id) ON DELETE CASCADE,
-      otp_code VARCHAR(64) NOT NULL,
-      expires_at TIMESTAMP NOT NULL,
-      is_used BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
-  try {
-    await pool.query(query);
-    console.log("✅ OTP table created successfully!");
-  } catch (error) {
-    console.error("❌ Error creating OTP table:", error);
-  }
-};
+const OtpSchema = new mongoose.Schema(
+  {
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    otp_code: { type: String, required: true },
+    expires_at: { type: Date, required: true, index: { expires: 0 } }, // Auto delete when expired
+    is_used: { type: Boolean, default: false },
+    typeOfOtp: {
+      type: String,
+      enum: ["login", "sign_up", "delivered", "reached"],
+      required: true,
+    },
+  },
+  { timestamps: true, strict:false } // Automatically adds createdAt & updatedAt
+);
+
+// Index for fast retrieval
+OtpSchema.index({ user_id: 1 });
+
+const Otp = mongoose.model("Otp", OtpSchema);
+export default Otp;

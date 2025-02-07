@@ -1,13 +1,14 @@
-import { Pool } from "pg";
 import dotenv from "dotenv";
-
-dotenv.config();
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, // Required for Neon
-  },
-});
-
-export default pool;
+import  mongoose from "mongoose";
+type env_type=String | any
+dotenv.config()
+const connectDb=()=>{
+  const connection_string: string = process.env.MONGODB_URL as string;
+  const promiseReturByMongoose=mongoose.connect(connection_string);
+  promiseReturByMongoose.then(()=>{
+      console.log("connection Successful");
+  }).catch((err:Error)=>{
+      console.log(`connection unsuccesful ${err.message}`);
+  })
+}
+module.exports=connectDb;
