@@ -6,6 +6,7 @@ const OtpSchema = new mongoose.Schema(
     otp_code: { type: String, required: true },
     expires_at: { type: Date, required: true, index: { expires: 0 } }, // Auto delete when expired
     is_used: { type: Boolean, default: false },
+    message:{type: String},
     typeOfOtp: {
       type: String,
       enum: ["login", "sign_up", "delivered", "reached"],

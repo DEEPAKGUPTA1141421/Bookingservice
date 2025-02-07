@@ -26,6 +26,9 @@ const CategorySchema = new Schema(
   { timestamps: true,strict:false }
 );
 
+
+
+
 // Index for faster queries
 CategorySchema.index({ name: 1 });
 
