@@ -8,6 +8,8 @@ import {
 } from "../validations/authcontroller_validation";
 import { QueryResult } from "pg";
 import bcrypt from "bcryptjs";
+import ErrorHandler from "../config/GlobalerrorHandler";
+import { sendResponse } from "../utils/responseHandler";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -17,7 +19,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     console.log(req.body);
     const validation = sendOtpSchema.safeParse(req.body);
     if (!validation.success) {
-      res.status(400).json({ error: validation.error.errors });
+      throw new ErrorHandler(validation.error.message, 400); 
       return;
     }
     const { phone } = req.body;
@@ -52,11 +54,10 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     );
 
     console.log(`✅ OTP for ${phone}:`, otp);
-
-    res.status(200).json({ message: "OTP sent successfully", isNewUser });
-  } catch (error) {
+    sendResponse(res,200,"OTP sent successfully",isNewUser);
+  } catch (error:any) {
     console.error("Error in sendOtp:", error);
-    res.status(500).json({ error: "Internal server error" });
+    throw new ErrorHandler(error.message, 400); 
   }
 };
 
