@@ -4,13 +4,14 @@ const OtpSchema = new mongoose.Schema(
   {
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     otp_code: { type: String, required: true },
-    expires_at: { type: Date, required: true, index: { expires: 0 } }, // Auto delete when expired
+    expires_at: { type: Date, required: true},
     is_used: { type: Boolean, default: false },
     message:{type: String},
     typeOfOtp: {
       type: String,
       enum: ["login", "sign_up", "delivered", "reached"],
       required: true,
+      default:"login"
     },
   },
   { timestamps: true, strict:false } // Automatically adds createdAt & updatedAt
