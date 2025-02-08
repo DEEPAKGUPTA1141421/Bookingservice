@@ -1,9 +1,30 @@
 import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema(
+const { Schema, model } = mongoose;
+interface IAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  location?: {
+    type: "Point";
+    coordinates: [number, number]; // Longitude, Latitude
+  };
+}
+
+interface IUser extends Document {
+  name?: string;
+  email?: string;
+  phone: string;
+  role: "user" | "provider" | "admin";
+  status: "verified" | "unverified";
+  image?: string;
+  address?: IAddress;
+}
+const UserSchema = new Schema<IUser>(
   {
     name: String,
-    email: { type: String, unique: true },
+    email: { type: String, unique: true, sparse: true, default: null },
     phone: { type: String, unique: true, required: true },
     role: {
       type: String,
@@ -22,8 +43,23 @@ const UserSchema = new mongoose.Schema(
       state: String,
       country: String,
       location: {
-        type: { type: String, enum: ["Point"], default: "Point" },
-        coordinates: { type: [Number] }, // [longitude, latitude]
+        type: {
+          type: String,
+          enum: ["Point"],
+          required: function () {
+            return this.address?.location?.coordinates?.length === 2;
+          }, // ✅ Only required if coordinates exist
+        },
+        coordinates: {
+          type: [Number],
+          required: false, // ✅ Allow missing initially
+          validate: {
+            validator: function (v: number[]) {
+              return !v || (Array.isArray(v) && v.length === 2);
+            },
+            message: "Coordinates must be an array of [longitude, latitude]",
+          },
+        },
       },
     },
   },
@@ -33,9 +69,8 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-// Indexing
-UserSchema.index({ "address.location": "2dsphere" }); // Geospatial index
-UserSchema.index({ _id: 1 }); // Explicitly indexing _id
+// ✅ Geospatial index applied only if "coordinates" exist
+UserSchema.index({ "address.location": "2dsphere" }, { sparse: true });
 
-const User = mongoose.model("User", UserSchema);
+const User = model("User", UserSchema);
 export default User;
