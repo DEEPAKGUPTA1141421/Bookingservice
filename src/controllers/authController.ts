@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -44,13 +44,18 @@ const editUserSchema = z.object({
   role: z.enum(["user", "admin", "provider"]).optional(),
 });
 
-export const sendOtp = async (req: Request, res: Response): Promise<void> => {
+export const sendOtp = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { phone } = sendOtpSchema.parse(req.body);
     let user = await User.findOne({ phone });
+    console.log(`we are here ${user}`);
 
     if (!user) {
-      user = new User({ phone, status: "unverified" });
+      user = new User({ phone });
       await user.save();
     }
 
@@ -58,7 +63,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await Otp.create({
+    const newotp = await Otp.create({
       user_id: user._id,
       otp_code: hashedOtp,
       expires_at: expiresAt,
@@ -72,7 +77,6 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     // });
 
     console.log(`✅ OTP for ${phone}:`, otp);
-
     sendResponse(res, 200, "OTP sent successfully", { isNewUser: !user });
   } catch (error) {
     res.status(400).json({

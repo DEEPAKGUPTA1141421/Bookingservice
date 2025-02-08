@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
-import { errorMiddleware } from "./config/CustomErrorhandler";
+import { errorMiddleware } from "./config/CustomErrorhanlder";
 const connectDb = require("./config/database");
 
 const app = express();
