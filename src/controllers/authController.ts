@@ -2,12 +2,18 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 import ErrorHandler from "../config/GlobalerrorHandler";
 import { sendResponse } from "../utils/responseHandler";
 import User from "../models/UserSchema";
 import Otp from "../models/OtpSchema";
 import { z } from "zod";
-import dotenv from "dotenv";
+import {
+  sendOtpSchema,
+  verifyOtpSchema,
+  editUserSchema,
+} from "../validations/authcontroller_validation"; // Import validation schemas
+
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -24,26 +30,6 @@ const generateToken = (userId: string) =>
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const sendOtpSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 digits").max(15),
-});
-
-const verifyOtpSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 digits").max(15),
-  otp: z.string().length(6, "OTP must be exactly 6 digits"),
-});
-
-const editUserSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().min(10).max(15).optional(),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .optional(),
-  role: z.enum(["user", "admin", "provider"]).optional(),
-});
-
 export const sendOtp = async (
   req: Request,
   res: Response,
@@ -52,7 +38,6 @@ export const sendOtp = async (
   try {
     const { phone } = sendOtpSchema.parse(req.body);
     let user = await User.findOne({ phone });
-    console.log(`we are here ${user}`);
 
     if (!user) {
       user = new User({ phone });
@@ -63,7 +48,7 @@ export const sendOtp = async (
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    const newotp = await Otp.create({
+    await Otp.create({
       user_id: user._id,
       otp_code: hashedOtp,
       expires_at: expiresAt,
@@ -80,7 +65,7 @@ export const sendOtp = async (
     sendResponse(res, 200, "OTP sent successfully", { isNewUser: !user });
   } catch (error) {
     res.status(400).json({
-      error: error instanceof z.ZodError ? error.errors : "Invalid request",
+      error: error instanceof z.ZodError ? error.format() : "Invalid request",
     });
   }
 };
@@ -125,7 +110,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
       .json({ message: "OTP verified successfully", user_id: user._id });
   } catch (error) {
     res.status(400).json({
-      error: error instanceof z.ZodError ? error.errors : "Invalid request",
+      error: error instanceof z.ZodError ? error.format() : "Invalid request",
     });
   }
 };
@@ -158,9 +143,13 @@ export const editUser = async (req: Request, res: Response): Promise<void> => {
     if (phone) updates.phone = phone.trim();
     if (role) updates.role = role;
     if (password) updates.password = await bcrypt.hash(password, 10);
-
     if (profilePicture && profilePicture.location) {
       updates.image = profilePicture.location;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No updates provided" });
+      return;
     }
 
     const user = await User.findByIdAndUpdate(id, updates, { new: true });

@@ -32,7 +32,7 @@ export const editUserSchema = z
       .string()
       .min(6, { message: "Password must be at least 6 characters long" })
       .optional(),
-    role: z.enum(["user", "admin", "service_provider"]).optional(),
+    role: z.enum(["user", "admin", "provider"]).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided for update",
