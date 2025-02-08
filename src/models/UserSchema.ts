@@ -5,9 +5,17 @@ const UserSchema = new mongoose.Schema(
     name: String,
     email: { type: String, unique: true },
     phone: { type: String, unique: true, required: true },
-    role: { type: String, enum: ["user", "provider", "admin"], default: "user" },
-    status: { type: String, enum: ["verified", "unverified"], default: "unverified" },
-    image:{type:String},
+    role: {
+      type: String,
+      enum: ["user", "provider", "admin"],
+      default: "user",
+    },
+    status: {
+      type: String,
+      enum: ["verified", "unverified"],
+      default: "unverified",
+    },
+    image: { type: String },
     address: {
       street: String,
       city: String,
@@ -15,13 +23,13 @@ const UserSchema = new mongoose.Schema(
       country: String,
       location: {
         type: { type: String, enum: ["Point"], default: "Point" },
-        coordinates: { type: [Number], required: true }, // [longitude, latitude]
+        coordinates: { type: [Number] }, // [longitude, latitude]
       },
     },
   },
-  { 
+  {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
-    strict: false // Allows additional fields not defined in schema
+    strict: false, // Allows additional fields not defined in schema
   }
 );
 
