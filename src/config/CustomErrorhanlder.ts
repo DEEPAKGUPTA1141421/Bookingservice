@@ -1,6 +1,6 @@
 import ErrorHandler from './GlobalerrorHandler';  // Adjust the import path as necessary
 
-module.exports = (err: any, req: any, res: any, next: any) => {
+const errorMiddleware = (err: any, req: any, res: any, next: any) => {
   // Default error message and status code
   err.message = err.message || 'Internal Server Error';
   err.statusCode = err.statusCode || 500;
@@ -36,3 +36,5 @@ module.exports = (err: any, req: any, res: any, next: any) => {
     statusCode: err.statusCode,
   });
 };
+
+export { errorMiddleware };

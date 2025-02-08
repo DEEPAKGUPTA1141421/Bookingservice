@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response,NextFunction } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import ErrorHandler from "../config/GlobalerrorHandler";
@@ -9,13 +9,14 @@ import Otp from "../models/OtpSchema";
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-export const sendOtp = async (req: Request, res: Response): Promise<void> => {
+export const sendOtp = async (req: Request, res: Response, next:NextFunction): Promise<void> => {
   try {
     const { phone } = req.body;
     let user = await User.findOne({ phone });
+    console.log(`we are here ${user}`)
 
     if (!user) {
-      user = new User({ phone, status: "unverified" });
+      user = new User({ phone});
       await user.save();
     }
 
@@ -23,7 +24,7 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await Otp.create({
+    const newotp=await Otp.create({
       user_id: user._id,
       otp_code: hashedOtp,
       expires_at: expiresAt,
@@ -31,10 +32,11 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
     });
 
     console.log(`✅ OTP for ${phone}:`, otp);
-    sendResponse(res, 200, "OTP sent successfully", !user);
+    console.log("we are verifying "+(1/0))
+    sendResponse(res, 200, "OTP sent successfully",{otp_code:otp});
   } catch (error: any) {
     console.error("Error in sendOtp:", error);
-    throw new ErrorHandler(error.message, 400);
+    next(new ErrorHandler(error.message, 400));
   }
 };
 
@@ -89,7 +91,9 @@ export const editUser = async (req: Request, res: Response): Promise<void> => {
     if (phone) updates.phone = phone.trim();
     if (role) updates.role = role;
     if (password) updates.password = await bcrypt.hash(password, 10);
-    if (profilePicture) updates.image = profilePicture.location;
+    if (profilePicture && profilePicture.location) {
+      updates.image = profilePicture.location;
+    }
 
     const user = await User.findByIdAndUpdate(id, updates, { new: true });
     if (!user) {
