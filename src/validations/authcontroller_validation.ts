@@ -1,12 +1,25 @@
 import { z } from "zod";
 
 export const sendOtpSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  phone: z
+    .string()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^[0-9]{10}$/, {
+      message: "Phone number must contain only digits (0-9)",
+    }),
 });
 
 export const verifyOtpSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  otp: z.string().length(6, "OTP must be exactly 6 digits"),
+  phone: z
+    .string()
+    .length(10, "Phone number must be exactly 10 digits")
+    .regex(/^[0-9]{10}$/, {
+      message: "Phone number must contain only digits (0-9)",
+    }),
+  otp: z
+    .string()
+    .length(6, "OTP must be exactly 6 digits")
+    .regex(/^[0-9]{6}$/, { message: "OTP must contain only digits (0-9)" }),
 });
 
 export const editUserSchema = z
@@ -15,6 +28,9 @@ export const editUserSchema = z
       .string()
       .min(2, { message: "Name must be at least 2 characters long" })
       .max(50, { message: "Name must be at most 50 characters long" })
+      .regex(/^[A-Za-z ]+$/, {
+        message: "Name must contain only alphabets and spaces",
+      })
       .optional()
       .or(z.literal("")), // Allow empty string but not undefined
     email: z
@@ -25,7 +41,9 @@ export const editUserSchema = z
     phone: z
       .string()
       .length(10, { message: "Phone number must be exactly 10 digits" })
-      .regex(/^\d{10}$/, { message: "Invalid phone number format" })
+      .regex(/^[0-9]{10}$/, {
+        message: "Phone number must contain only digits (0-9)",
+      })
       .optional()
       .or(z.literal("")),
     password: z
