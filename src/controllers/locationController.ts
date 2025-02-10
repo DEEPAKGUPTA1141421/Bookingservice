@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import axios from "axios";
 import { getAddressSchema, getCoordinateSchema } from "../validations/location_validations";
-import { getAddressFromCordinate } from "../services/locationservice";
+import { getAddressFromCordinate, getDistanceTimeService } from "../services/locationservice";
 import ErrorHandler from "../config/GlobalerrorHandler";
 import { sendResponse } from "../utils/responseHandler";
 import { CheckZodValidation } from "../utils/helper";
@@ -66,6 +66,7 @@ export const getDistanceTime=async(req:Request,res:Response,next:NextFunction)=>
     const {origin,destination}=validation.data as {origin: string , destination: string}
     const response=await getDistanceTimeService(origin,destination);
     sendResponse(res,201,"Distance",response);
+  }
   catch(error:any){
     next(new ErrorHandler(error.message,404));
   }

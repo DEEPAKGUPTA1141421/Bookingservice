@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
+import AdminRoutes from "./routes/adminRoute"
 import { errorMiddleware } from "./config/CustomErrorhandler";
 const connectDb = require("./config/database");
 const app = express();
@@ -16,6 +17,7 @@ app.get("/", (req, res) => {
 });
 app.use("/auth", otpRoutes);
 app.use('/location', locationRoutes);
+app.use("/admin",AdminRoutes)
 app.use(errorMiddleware);
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
