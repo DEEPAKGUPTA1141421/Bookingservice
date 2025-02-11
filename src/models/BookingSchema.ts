@@ -6,7 +6,7 @@ const { Schema, model, Types } = mongoose;
 const BookingSchema = new Schema(
   {
     user: { type: Types.ObjectId, ref: "User", required: true }, // FK to User
-    CartItenm
+    cart:{ type: Types.ObjectId, ref: "Cart", required: true },
     // Booking Status
     status: {
       type: String,
