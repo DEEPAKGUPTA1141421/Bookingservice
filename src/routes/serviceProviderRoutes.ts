@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post("/create", createServiceProvider);
 router.get("/all", getAllServiceProviders);
-router.get("/:id", getServiceProviderById);
+router.get("/get/:id", getServiceProviderById);
 router.put("/update/:id", updateServiceProvider);
 router.delete("/delete/:id", deleteServiceProvider);
 
