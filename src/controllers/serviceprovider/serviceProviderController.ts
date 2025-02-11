@@ -7,8 +7,13 @@ import { createServiceProviderSchema } from "../../validations/service_provider_
 
 // Create a new service provider
 export const createServiceProvider = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const validation = CheckZodValidation(req.body, createServiceProviderSchema, next);
+    try {
+    const profilePicture = req.file as Express.MulterS3.File | undefined;
+    if (!profilePicture || !profilePicture.location) {
+        next(new ErrorHandler("At least one image is required", 400));
+        return;
+    }
+    const validation = CheckZodValidation({ ...req.body, image: profilePicture.location }, createServiceProviderSchema, next);
     if (!validation.success) return;
     const response = await createServiceProviderService(validation.data, next);
     sendResponse(res, 201, "Service Provider Created Successfully", response);

@@ -8,7 +8,7 @@ const ServiceProviderSchema = new Schema(
     name: { type: String, required: true },
     email: { type: String, unique: true },
     phone: { type: String, required: true, unique: true },
-    actualService: { type: Schema.Types.ObjectId, ref: "ActualService" },
+    actualService: { type: Schema.Types.ObjectId, ref: "ActualService",required: true },
     image: { type: String },
     status: { 
       type: String, 
