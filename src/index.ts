@@ -4,6 +4,7 @@ import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
 import AdminRoutes from "./routes/adminRoute";
 import cartRoutes from "./routes/cartRoutes";
+import ServiceRoutes from "./routes/serviceProviderRoutes"
 import { errorMiddleware } from "./config/CustomErrorhandler";
 const connectDb = require("./config/database");
 const app = express();
@@ -20,6 +21,7 @@ app.use("/auth", otpRoutes);
 app.use("/location", locationRoutes);
 app.use("/admin", AdminRoutes);
 app.use("/cart", cartRoutes);
+app.use("/service-provider",ServiceRoutes)
 app.use(errorMiddleware);
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);

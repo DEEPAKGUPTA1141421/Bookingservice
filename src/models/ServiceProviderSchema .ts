@@ -8,19 +8,15 @@ const ServiceProviderSchema = new Schema(
     name: { type: String, required: true },
     email: { type: String, unique: true },
     phone: { type: String, required: true, unique: true },
+    actualService: { type: Schema.Types.ObjectId, ref: "ActualService" },
     image: { type: String },
-    role: { 
-      type: String, 
-      enum: ['provider'], 
-      default: 'provider' 
-    },
     status: { 
       type: String, 
       enum: ['verified', 'unverified'], 
       default: 'unverified' 
     },
     company_name: { type: String },
-    license_no: { type: String, required: true, unique: true },
+    license_no: { type: String, unique: true },
     rating: { 
       type: Number, 
       default: 0.0, 
