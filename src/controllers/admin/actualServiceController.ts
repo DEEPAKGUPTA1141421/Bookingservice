@@ -4,7 +4,6 @@ import { createActualService, getActualServiceById, updateActualService, deleteA
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { sendResponse } from "../../utils/responseHandler";
 
-
 // Create Actual Service
 export const createActualServiceController = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -16,8 +15,8 @@ export const createActualServiceController = async (req: Request, res: Response,
     const validation = createActualServiceSchema.safeParse({ ...req.body, images: imageUrls });
     if (!validation.success) return next(new ErrorHandler(validation.error.errors[0].message, 400));
 
-    const { name, description, images, service, options } = validation.data as { name: string; description: string; images: string[]; service: string; options: string[] };
-    const response = await createActualService(name, description, images, service, options, next);
+    const { name, description, images, service } = validation.data as { name: string; description: string; images: string[]; service: string;};
+    const response = await createActualService(name, description, images, service, next);
     if (response) sendResponse(res, 201, "Actual Service Created Successfully", response);
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
@@ -44,14 +43,14 @@ export const updateActualServiceController = async (req: Request, res: Response,
     const validation = updateActualServiceSchema.safeParse({ ...req.params, ...req.body });
     if (!validation.success) return next(new ErrorHandler(validation.error.errors[0].message, 400));
 
-    const { id, name, description, images, service, options } = validation.data;
-    const updates: Partial<{ name: string; description: string; images: string[]; service: string; options: string[] }> = {};
+    const { id, name, description, images, service } = validation.data;
+    const updates: Partial<{ name: string; description: string; images: string[]; service: string;}> = {};
 
     if (name) updates.name = name.trim();
     if (description) updates.description = description.trim();
     if (images) updates.images = images;
     if (service) updates.service = service;
-    if (options) updates.options = options;
+    // if (options) updates.options = options;
 
     const updatedActualService = await updateActualService(id, updates, next);
     if (updatedActualService) sendResponse(res, 200, "Actual Service updated successfully", updatedActualService);

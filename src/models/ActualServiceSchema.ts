@@ -5,15 +5,23 @@ const { Schema, model, Types } = mongoose;
 // Service Option Schema (Linked to Actual Service)
 const ServiceOptionSchema = new Schema(
   {
-    actualService: { type: Types.ObjectId, ref: "ActualService", required: true }, // Foreign key
+    actualService: {
+      type: Types.ObjectId,
+      ref: "ActualService",
+      required: true,
+    }, // Foreign key
     name: { type: String, required: true }, // e.g., "2 Sofa Cleaning"
     price: { type: Number, required: true }, // Price for this option
-    discount_price:{type:Number},
+    discount_price: { type: Number },
     duration: { type: Number, required: true }, // Estimated duration in minutes
     description: { type: String }, // Optional description
-    service_provider: { type: Types.ObjectId, ref: "ServiceProvider", required: true },
+    service_provider: {
+      type: Types.ObjectId,
+      ref: "ServiceProvider",
+      required: true,
+    },
     images: { type: [String], default: [] },
-    rating:{type: Number,default: 0}
+    rating: { type: Number, default: 0 },
   },
   { timestamps: true, strict: false }
 );
@@ -28,7 +36,7 @@ const ActualServiceSchema = new Schema(
     description: { type: String },
     images: { type: [String], default: [] },
     service: { type: Types.ObjectId, ref: "Service", required: true }, // Foreign key to Service
-    options: [{ type: Types.ObjectId, ref: "ServiceOption" }], // Linking options
+    // options: [{ type: Types.ObjectId, ref: "ServiceOption" }], // Linking options
   },
   { timestamps: true, strict: false }
 );

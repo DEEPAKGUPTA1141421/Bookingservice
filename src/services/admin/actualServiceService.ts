@@ -4,9 +4,9 @@ import { ActualService } from "../../models/ActualServiceSchema";
 import ErrorHandler from "../../config/GlobalerrorHandler";
 
 // Create Actual Service
-export const createActualService = async (name: string, description: string, images: string[], service: string, options: string[], next: NextFunction) => {
+export const createActualService = async (name: string, description: string, images: string[], service: string, next: NextFunction) => {
   try {
-    const newActualService = await ActualService.create({ name, description, images, service, options });
+    const newActualService = await ActualService.create({ name, description, images, service });
     if (newActualService) {
       return { id: newActualService._id };
     } else {
@@ -29,7 +29,7 @@ export const getActualServiceById = async (id: string, next: NextFunction) => {
 };
 
 // Update Actual Service
-export const updateActualService = async (id: string, updates: Partial<{ name: string; description: string; images: string[]; service: string; options: string[] }>, next: NextFunction) => {
+export const updateActualService = async (id: string, updates: Partial<{ name: string; description: string; images: string[]; service: string; }>, next: NextFunction) => {
   try {
     const updatedActualService = await ActualService.findByIdAndUpdate(id, updates, { new: true });
     if (!updatedActualService) return next(new ErrorHandler("Actual Service not found", 404));
