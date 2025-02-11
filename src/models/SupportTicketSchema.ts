@@ -5,6 +5,7 @@ const SupportTicketSchema = new Schema(
   {
     ticket_id: { type: String, unique: true},
     user: { type: Types.ObjectId, ref: "User", required: true }, // FK to User
+    booking:{type: Types.ObjectId, ref :"Booking", required:true},
 
     issue: { type: String, required: true }, // User's complaint or request
 

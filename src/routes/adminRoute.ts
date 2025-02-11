@@ -52,7 +52,7 @@ router.put(
 router.delete("/service/:id", deleteServiceController);
 
 router.post(
-  "/create",
+  "/create-actual-service",
   upload.array("actualServiceImages"),
   createActualServiceController
 );
