@@ -42,18 +42,24 @@ export const getCategory = async (req: Request, res: Response, next: NextFunctio
     }
 };
 
-export const getAllCategories = async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-        const categories = await Category.find();
-        sendResponse(res, 200, "Categories retrieved successfully", categories);
-    } catch (error: any) {
-        next(new ErrorHandler(error.message, 500));
-    }
+export const getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  console.log("Request received"); // Debugging
+  
+  try {
+    const categories = await Category.find({}); // Ensure we're fetching all categories
+    
+    if (!categories.length) return next(new ErrorHandler("No categories found", 404));
+
+    sendResponse(res, 200, "Categories retrieved successfully", categories);
+  } catch (error: any) {
+    next(new ErrorHandler(error.message, 500));
+  }
 };
+
 
 export const updateCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!req.files || !(req.files as Express.MulterS3.File[]).length) {
+    if (!req.files || !(req.files as Express.MulterS3.File[]).length || !req.files.length) {
       return next(new ErrorHandler("At least one image is required", 400));
     }
 

@@ -8,25 +8,25 @@ export const createCategorySchema = z.object({
 });
 
 export const getCategorySchema = z.object({
-  id: z.string().length(8, { message: "Invalid category ID" }),
+  id: z.string().min(8, { message: "Invalid category ID" }),
 });
 
 export const updateCategorySchema = z.object({
-  id: z.string().length(8, { message: "Invalid category ID" }),
+  id: z.string().min(8, { message: "Invalid category ID" }),
   name: z.string().min(2, { message: "Name must be at least 2 characters long" }).optional(),
   description: z.string().min(10, { message: "Description must be at least 10 characters long" }).optional(),
   images: z.array(z.string().url({ message: "Each image must be a valid URL" })).optional(),
 });
 
 export const deleteCategorySchema = z.object({
-  id: z.string().length(24, { message: "Invalid category ID" }),
+  id: z.string().min(8, { message: "Invalid category ID" }),
 });
 
 export const createServiceSchema = z.object({
   name: z.string().min(2, { message: "Service name must be at least 2 characters long" }),
   description: z.string().min(10, { message: "Description must be at least 10 characters long" }),
   images: z.array(z.string().url({ message: "Each image must be a valid URL" })).nonempty({ message: "At least one image is required" }),
-  category: z.string().length(24, { message: "Invalid category ID" }),
+  category: z.string().min(8, { message: "Invalid category ID" }),
 });
 
 export const updateServiceSchema = z.object({
