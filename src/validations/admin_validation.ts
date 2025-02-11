@@ -67,13 +67,13 @@ export const deleteActualServiceSchema = z.object({
 });
 
 export const createServiceOptionSchema = z.object({
-  actualService: z.string().length(24, { message: "Invalid Actual Service ID" }),
+  actualService: z.string().min(8, { message: "Invalid Actual Service ID" }),
   name: z.string().min(2, { message: "Option name must be at least 2 characters long" }),
-  price: z.number().min(1, { message: "Price must be greater than zero" }),
-  discount_price: z.number().optional(),
-  duration: z.number().min(1, { message: "Duration must be at least 1 minute" }),
+  price: z.preprocess((val) => Number(val), z.number().min(1, { message: "Price must be greater than zero" })),
+  discount_price: z.preprocess((val) => (val ? Number(val) : undefined), z.number().optional()),
+  duration: z.preprocess((val) => Number(val), z.number().min(1, { message: "Duration must be at least 1 minute" })),
   description: z.string().optional(),
-  service_provider: z.string().length(24, { message: "Invalid Service Provider ID" }),
+  service_provider: z.string().min(8, { message: "Invalid Service Provider ID" }),
   images: z.array(z.string().url({ message: "Each image must be a valid URL" })).nonempty({ message: "At least one image is required" }),
 });
 

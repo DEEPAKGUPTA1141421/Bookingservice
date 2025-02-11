@@ -29,12 +29,12 @@ router.get("/service/:id", getServiceController);
 router.put("/service/:id", upload.array("serviceImages"), updateServiceController);
 router.delete("/service/:id", deleteServiceController);
 
-router.post("/create", upload.array("actualServiceImages"), createActualServiceController);
+router.post("/create-actual-service", upload.array("actualServiceImages"), createActualServiceController);
 router.get("/:id", getActualServiceController);
 router.put("/update/:id", updateActualServiceController);
 router.delete("/delete/:id", deleteActualServiceController);
 
-router.post("/create", upload.array("serviceOptionImages"), createServiceOptionController);
+router.post("/create-option", upload.array("serviceOptionImages"), createServiceOptionController);
 router.get("/:id", getServiceOptionController);
 router.put("/update/:id", updateServiceOptionController);
 router.delete("/delete/:id", deleteServiceOptionController);
