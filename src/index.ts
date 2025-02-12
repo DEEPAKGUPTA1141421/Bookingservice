@@ -7,6 +7,7 @@ import cartRoutes from "./routes/cartRoutes";
 import ServiceRoutes from "./routes/serviceproviderRoute"
 import findProvider from "./routes/findProvider"
 import { errorMiddleware } from "./config/CustomErrorhandler";
+import { isAuthenticated } from "./middleware/authorised";
 const connectDb = require("./config/database");
 const app = express();
 app.use(cors());
@@ -14,6 +15,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const port = 4000;
 connectDb();
+app.get("/test",isAuthenticated,(req,res,next)=>{
+  res.status(200).json({success:true})
+})
 app.get("/", (req, res) => {
   res.status(200).json({
     msg: "Server is up and running from my end!",
