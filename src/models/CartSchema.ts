@@ -2,6 +2,14 @@ import mongoose from "mongoose";
 const { Schema, model, Types } = mongoose;
 
 // Cart Item Schema (Each service added to cart)
+interface CartItem {
+  service: mongoose.Types.ObjectId;
+  service_option: mongoose.Types.ObjectId;
+  quantity: number;
+  price: number;
+}
+
+
 export const CartItemSchema = new Schema(
   {
     service: { type: Types.ObjectId, ref: "ActualService", required: true }, // FK to Service
@@ -41,7 +49,23 @@ const PromoCodeSchema = new Schema(
 const CartSchema = new Schema(
   {
     user: { type: Types.ObjectId, ref: "User", required: true }, // FK to User
-    items: [CartItemSchema], // List of services in cart
+    items: {
+      type: [
+        {
+          type: CartItemSchema,
+          unique: true, // ❌ This does NOT work on arrays
+        },
+      ],
+      validate: {
+        validator: function (items: CartItem[]) {
+          const uniqueServiceOptions = new Set(
+            items.map((item) => item.service_option.toString())
+          );
+          return uniqueServiceOptions.size === items.length;
+        },
+        message: "Duplicate service_option found in cart items.",
+      },
+    },
     promo_code: { type: String, ref: "PromoCode", default: null }, // Applied promo code
     total_price: { type: Number, required: true, default: 0 }, // Cart total before discount
     discount: { type: Number, default: 0 }, // Discount amount
