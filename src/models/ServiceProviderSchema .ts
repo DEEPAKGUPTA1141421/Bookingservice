@@ -16,7 +16,7 @@ const ServiceProviderSchema = new Schema(
       default: 'unverified' 
     },
     company_name: { type: String },
-    license_no: { type: String, unique: true },
+    license_no: { type: String },
     rating: { 
       type: Number, 
       default: 0.0, 
@@ -27,7 +27,7 @@ const ServiceProviderSchema = new Schema(
       street: String,
       city: String,
       state: String,
-      country: String,
+      country: String,  
       location: {
         type: { type: String, enum: ["Point"], default: "Point" },
         coordinates: { type: [Number], required: true }, // [longitude, latitude]
@@ -40,8 +40,7 @@ const ServiceProviderSchema = new Schema(
 // Index for faster querying
 ServiceProviderSchema.index({ email: 1 });
 ServiceProviderSchema.index({ phone: 1 });
-ServiceProviderSchema.index({ license_no: 1 });
 
 const ServiceProvider = model("ServiceProvider", ServiceProviderSchema);
 
-export default ServiceProvider;
+export default ServiceProvider; 

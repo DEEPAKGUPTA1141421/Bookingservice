@@ -4,6 +4,7 @@ export const createServiceProviderSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters long" }),
   email: z.string().email({ message: "Invalid email format" }).optional(),
   phone: z.string().min(10, { message: "Phone number must be at least 10 digits long" }),
+  actualService: z.string().min(8,{message:"Invalid Object Id"}).optional(),
   image: z.string().url({ message: "Invalid image URL" }).optional(),
   status: z.enum(["verified", "unverified"]).default("unverified"),
   company_name: z.string().optional(),

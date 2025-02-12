@@ -4,7 +4,7 @@ import upload from "../middleware/upload";
 
 const router = express.Router();
 
-router.post("/create", createServiceProvider);
+router.post("/create", upload.single("providerpicture"),  createServiceProvider);
 router.get("/all", getAllServiceProviders);
 router.get("/get/:id", getServiceProviderById);
 router.put(

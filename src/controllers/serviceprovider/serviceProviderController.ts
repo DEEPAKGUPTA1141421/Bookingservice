@@ -6,15 +6,20 @@ import ErrorHandler from "../../config/GlobalerrorHandler";
 import { createServiceProviderSchema, updateServiceProviderSchema } from "../../validations/service_provider_validation";
 
 // Create a new service provider
-export const createServiceProvider = async (req: Request, res: Response, next: NextFunction) => {
-    try {
+export const createServiceProvider = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+  try {
+    console.log(req.file); 
     const profilePicture = req.file as Express.MulterS3.File | undefined;
     if (!profilePicture || !profilePicture.location) {
         next(new ErrorHandler("At least one image is required", 400));
         return;
     }
+    console.log(req.body);  
     const validation = CheckZodValidation({ ...req.body, image: profilePicture.location }, createServiceProviderSchema, next);
-    if (!validation.success) return;
+    if (!validation.success) {
+       next(new ErrorHandler("validation failed", 500));
+      return;
+    }
     const response = await createServiceProviderService(validation.data, next);
     sendResponse(res, 201, "Service Provider Created Successfully", response);
   } catch (error: any) {
