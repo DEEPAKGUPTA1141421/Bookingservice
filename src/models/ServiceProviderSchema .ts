@@ -1,46 +1,60 @@
-import mongoose from "mongoose";
+import { IBaseSchema } from "../utils/GlobalTypescript";
+import mongoose, { Document, Types,Schema } from "mongoose";
 
-const { Schema, model } = mongoose;
+// ✅ Define the Interface for ServiceProvider Schema
+export interface IServiceProvider extends IBaseSchema {
+  name: string;
+  email?: string;
+  phone: string;
+  actualService: Types.ObjectId; // Reference to ActualService
+  image?: string;
+  status: 'verified' | 'unverified';
+  company_name?: string;
+  license_no?: string;
+  rating: number;
+  address: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    location: {
+      type: string; // Should always be 'Point' in this case
+      coordinates: [number, number]; // [longitude, latitude]
+    };
+  };
+}
 
-// Define the Service Provider Schema
-const ServiceProviderSchema = new Schema(
+// Define Mongoose Schema for ServiceProvider
+const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
   {
     name: { type: String, required: true },
     email: { type: String, unique: true },
     phone: { type: String, required: true, unique: true },
-    actualService: { type: Schema.Types.ObjectId, ref: "ActualService",required: true },
+    actualService: { type: Schema.Types.ObjectId, ref: "ActualService", required: true },
     image: { type: String },
-    status: { 
-      type: String, 
-      enum: ['verified', 'unverified'], 
-      default: 'unverified' 
-    },
+    status: { type: String, enum: ['verified', 'unverified'], default: 'unverified' },
     company_name: { type: String },
     license_no: { type: String },
-    rating: { 
-      type: Number, 
-      default: 0.0, 
-      min: 0, 
-      max: 5 
-    },
+    rating: { type: Number, default: 0.0, min: 0, max: 5 },
     address: {
-      street: String,
-      city: String,
-      state: String,
-      country: String,  
+      street: { type: String },
+      city: { type: String },
+      state: { type: String },
+      country: { type: String },
       location: {
         type: { type: String, enum: ["Point"], default: "Point" },
         coordinates: { type: [Number], required: true }, // [longitude, latitude]
       },
-    }
+    },
   },
-  { timestamps: true,strict: false } // Automatically adds createdAt and updatedAt
+  { timestamps: true, strict: false }
 );
 
-// Index for faster querying
+// Indexing for faster querying
 ServiceProviderSchema.index({ email: 1 });
 ServiceProviderSchema.index({ phone: 1 });
 
-const ServiceProvider = model("ServiceProvider", ServiceProviderSchema);
+// Define the Model
+const ServiceProvider = mongoose.model<IServiceProvider>("ServiceProvider", ServiceProviderSchema);
 
-export default ServiceProvider; 
+export default ServiceProvider;

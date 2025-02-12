@@ -1,21 +1,33 @@
-import mongoose from "mongoose";
-const { Schema, model, Types } = mongoose;
+import { IBaseSchema } from "../utils/GlobalTypescript";
+import mongoose, { Document, SchemaTypeOptions, Types, Schema } from "mongoose";
 
-const PaymentSchema = new Schema(
+// ✅ Define Interface for Payment
+export interface IPayment extends IBaseSchema {
+  booking: Types.ObjectId; // Reference to Booking
+  user: Types.ObjectId; // Reference to User
+  serviceProvider: Types.ObjectId; // Reference to ServiceProvider
+  amount: number; // Payment Amount
+  currency: string; // Currency type (INR, USD, etc.)
+  method: "cash" | "credit_card" | "upi" | "wallet"; // Payment Method
+  transactionId?: string; // Unique transaction ID
+  status: "initiated" | "pending" | "paid" | "failed"; // Payment status
+  pg_response: Record<string, unknown>; // Payment Gateway response (dynamic)
+  createdAt: Date; // Payment creation date
+}
+
+// Define Mongoose Schema for Payment
+const PaymentSchema = new mongoose.Schema<IPayment>(
   {
-    booking: { type: Types.ObjectId, ref: "Booking", required: true }, // FK to Booking
-    user: { type: Types.ObjectId, ref: "User", required: true }, // FK to User
-    serviceProvider: { type: Types.ObjectId, ref: "ServiceProvider", required: true }, // FK to Provider
-
-    amount: { type: Number, required: true }, // Payment Amount
-    currency: { type: String, default: "INR" }, // Currency Type (USD, INR, etc.)
-    method: { type: String, enum: ["cash", "credit_card", "upi", "wallet"], required: true }, // Payment Method
-    transactionId: { type: String, unique: true }, // Unique Transaction ID
-    status: { type: String, enum: ["intiated","pending", "paid", "failed"], default: "intiated" }, // Payment Status
-
-    pg_response: { type: Schema.Types.Mixed, default: {} }, // Stores the entire Payment Gateway response
-
-    createdAt: { type: Date, default: Date.now }, // Payment Creation Date
+    booking: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    serviceProvider: { type: Schema.Types.ObjectId, ref: "ServiceProvider", required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: "INR" },
+    method: { type: String, enum: ["cash", "credit_card", "upi", "wallet"], required: true },
+    transactionId: { type: String, unique: true },
+    status: { type: String, enum: ["initiated", "pending", "paid", "failed"], default: "initiated" },
+    pg_response: { type: Schema.Types.Mixed, default: {} },
+    createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true, strict: false }
 );
@@ -25,5 +37,7 @@ PaymentSchema.index({ booking: 1 });
 PaymentSchema.index({ user: 1 });
 PaymentSchema.index({ serviceProvider: 1 });
 
-const Payment = model("Payment", PaymentSchema);
+// Define Model
+const Payment = mongoose.model<IPayment>("Payment", PaymentSchema);
+
 export { Payment };

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { IBaseSchema } from "../utils/GlobalTypescript";
 
 const { Schema, model } = mongoose;
 interface IAddress {
@@ -12,7 +13,7 @@ interface IAddress {
   };
 }
 
-export interface IUser extends Document {
+export interface IUser extends IBaseSchema {
   name?: string;
   email?: string;
   phone: string;
@@ -72,5 +73,5 @@ const UserSchema = new Schema<IUser>(
 // ✅ Geospatial index applied only if "coordinates" exist
 UserSchema.index({ "address.location": "2dsphere" }, { sparse: true });
 
-const User = model("User", UserSchema);
+const User = model<IUser>("User", UserSchema);
 export default User;

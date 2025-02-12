@@ -1,23 +1,31 @@
-import mongoose from "mongoose";
-const { Schema, model, Types } = mongoose;
+import { IBaseSchema } from "../utils/GlobalTypescript";
+import mongoose, { Document, Types, Schema } from "mongoose";
 
-const SupportTicketSchema = new Schema(
+// ✅ Define the Interface for SupportTicket Schema
+export interface ISupportTicket extends IBaseSchema {
+  ticket_id: string;
+  user: Types.ObjectId; // Reference to User
+  booking: Types.ObjectId; // Reference to Booking
+  issue: string; // Complaint or Request
+  status: "open" | "in_progress" | "resolved" | "closed"; // Status of the ticket
+  response?: string; // Admin's response (optional)
+  created_at: Date; // Timestamp of ticket creation
+}
+
+// Define Mongoose Schema for SupportTicket
+const SupportTicketSchema = new mongoose.Schema<ISupportTicket>(
   {
-    ticket_id: { type: String, unique: true},
-    user: { type: Types.ObjectId, ref: "User", required: true }, // FK to User
-    booking:{type: Types.ObjectId, ref :"Booking", required:true},
-
-    issue: { type: String, required: true }, // User's complaint or request
-
+    ticket_id: { type: String, unique: true },
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    booking: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
+    issue: { type: String, required: true },
     status: {
       type: String,
       enum: ["open", "in_progress", "resolved", "closed"],
       default: "open",
-    }, // Status of the ticket
-
-    response: { type: String, default: "" }, // Admin response (if any)
-
-    created_at: { type: Date, default: Date.now }, // Timestamp when ticket was created
+    },
+    response: { type: String, default: "" },
+    created_at: { type: Date, default: Date.now },
   },
   { timestamps: true, strict: false }
 );
@@ -26,5 +34,7 @@ const SupportTicketSchema = new Schema(
 SupportTicketSchema.index({ user: 1 });
 SupportTicketSchema.index({ status: 1 });
 
-const SupportTicket = model("SupportTicket", SupportTicketSchema);
+// Define the Model
+const SupportTicket = mongoose.model<ISupportTicket>("SupportTicket", SupportTicketSchema);
+
 export { SupportTicket };
