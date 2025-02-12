@@ -4,7 +4,7 @@ import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
 import AdminRoutes from "./routes/adminRoute";
 import cartRoutes from "./routes/cartRoutes";
-import ServiceRoutes from "./routes/serviceProviderRoutes"
+import ServiceRoutes from "./routes/serviceproviderRoute"
 import findProvider from "./routes/findProvider"
 import { errorMiddleware } from "./config/CustomErrorhandler";
 const connectDb = require("./config/database");
