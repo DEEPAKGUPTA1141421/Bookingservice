@@ -20,3 +20,7 @@ export const getDistanceTimeSchema = z.object({
   origin: z.string().min(2, { message: "Address must be at least 2 characters long" }),
   destination: z.string().min(2, { message: "Address must be at least 2 characters long" }),
 });
+
+export const getSuggestionSchema = z.object({   
+  keyword: z.string().min(2, { message: "Keyword must be at least 2 characters long" }),
+});
