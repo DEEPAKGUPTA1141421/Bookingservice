@@ -61,8 +61,8 @@ export const addToCart = async (body: any) => {
   );
 
   cart.discount = cart.items.reduce((acc, item) => {
-    // Convert item to plain object before accessing properties
-    const itemObj = item.toObject();
+    const itemObj = item; // No need for .toObject()
+
     return acc + (serviceOption.price - itemObj.price) * itemObj.quantity;
   }, 0);
 
@@ -72,26 +72,25 @@ export const addToCart = async (body: any) => {
   return cart;
 };
 
-
-
-// Get Cart Logic
 export const getCart = async (userId: string) => {
   const cart = await Cart.findOne({ user: userId })
     .populate({
       path: "items.service_option",
       populate: { path: "actualService" },
     })
-    .lean();
+    .populate("items") // Ensure _id is populated for items
+    .exec();
 
   if (!cart || cart.items.length === 0) {
     throw new ErrorHandler("Cart is empty", 404);
   }
 
   for (const item of cart.items) {
-    const serviceOption = item.service_option as {
+    const serviceOption = item.service_option as unknown as {
       price: number;
       discount_price?: number;
     };
+
     const discountPrice = serviceOption.discount_price ?? 0;
 
     await CartItem.findByIdAndUpdate(item._id, {

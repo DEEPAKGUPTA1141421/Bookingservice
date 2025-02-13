@@ -8,6 +8,8 @@ import ServiceRoutes from "./routes/serviceproviderRoute"
 import findProvider from "./routes/findProvider"
 import { errorMiddleware } from "./config/CustomErrorhandler";
 import { isAuthenticated } from "./middleware/authorised";
+import BookingRoutes from "./routes/bookingRoutes";
+
 const connectDb = require("./config/database");
 const app = express();
 app.use(cors());
@@ -29,6 +31,7 @@ app.use("/admin", AdminRoutes);
 app.use("/cart", cartRoutes);
 app.use("/service-provider",ServiceRoutes)
 app.use("/find-provider",findProvider);
+app.use("/booking",BookingRoutes);
 
 app.use(errorMiddleware);
 app.listen(port, () => {
