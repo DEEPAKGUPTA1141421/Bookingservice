@@ -11,8 +11,16 @@ import findProvider from "./routes/findProvider";
 import { errorMiddleware } from "./config/CustomErrorhandler";
 import { isAuthenticated } from "./middleware/authorised";
 import BookingRoutes from "./routes/bookingRoutes";
+import { connectDb } from "./config/database";
 
-const connectDb = require("./config/database");
+// Kafka producer setup
+const kafka = new Kafka({
+  clientId: "my-app",
+  brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
+});
+const producer = kafka.producer();
+
+// Express app setup
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -47,9 +55,9 @@ app.use("/auth", otpRoutes);
 app.use("/location", locationRoutes);
 app.use("/admin", AdminRoutes);
 app.use("/cart", cartRoutes);
-app.use("/service-provider",ServiceRoutes)
-app.use("/find-provider",findProvider);
-app.use("/booking",BookingRoutes);
+app.use("/service-provider", ServiceRoutes);
+app.use("/find-provider", findProvider);
+app.use("/booking", BookingRoutes);
 
 // Kafka message producer function
 async function main(topic: string, message: any) {
