@@ -14,25 +14,28 @@ export const CheckZodValidation=(body:any,schema:any,next:NextFunction)=>{
 async function getProvidersWithinRadius(
   referenceLongitude: number,
   referenceLatitude: number,
-  radiusInKm: number
+  radiusInKm: number,
+  actualService: string
 ) {
   try {
     // Use GEORADIUS to get the service providers within the radius
-    const result = await redisClient.georadius(
-      "serviceProviders", // Redis key where service providers' geo data is stored
-      referenceLongitude, // Reference longitude
-      referenceLatitude, // Reference latitude
-      radiusInKm, // Radius in kilometers
-      "km" // Unit: kilometers
+    const nearbyProviders = await redisClient.georadius(
+      `geo:${actualService}`,
+      referenceLongitude,
+      referenceLatitude,
+      radiusInKm,
+      "km",
+      "WITHCOORD"
     );
 
-    if (result.length === 0) {
+
+    if (nearbyProviders.length === 0) {
       console.log(`No service providers found within ${radiusInKm} km.`);
       return [];
     }
 
     // Return list of providers (providerId)
-    return result;
+    return nearbyProviders
   } catch (error) {
     console.error("Error fetching service providers:", error);
     throw error;
@@ -40,11 +43,12 @@ async function getProvidersWithinRadius(
 }
 
 // Example usage:
-const getnearestSrviceProver = async (Longitude: number = -122.4194,Latitude:number =37.7749, radiusInKm:number=5 ) => {
+const getnearestSrviceProvider = async (Longitude: number = -122.4194,Latitude:number =37.7749, radiusInKm:number=5,actualService:string ) => {
   const serviceProviders = await getProvidersWithinRadius(
     Longitude,
     Latitude,
-    radiusInKm
+    radiusInKm,
+    actualService
   );
   console.log(serviceProviders);
   return serviceProviders;

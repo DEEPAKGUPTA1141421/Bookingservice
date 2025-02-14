@@ -63,7 +63,10 @@ const redisClient = new Redis(process.env.REDIS_URL || "redis://localhost");
 
 export const getLocationFromProviderService = async (providerId: string) => {
   // Try fetching the location from Redis
-  const geoData = await redisClient.geopos("serviceProviders", providerId);
+  const actualService = await ServiceProvider.findById(providerId)
+    .populate("actualService", "name") // Populate 'actualService' and select only 'name'
+    .select("actualService"); // Ensure 'actualService' is included in the result
+  const geoData = await redisClient.geopos(`geo:${actualService}`, providerId);
 
   if (geoData && geoData[0]) {
     // If the location is found in Redis
