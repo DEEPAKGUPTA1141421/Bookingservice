@@ -48,7 +48,7 @@ const BookingSchema = new Schema<IBooking>(
       default: "initiated",
     },
     bookingDate: { type: Date, required: true },
-    scheduledTime: { type: Date },
+    scheduledTime: { type: Boolean },
     completedTime: { type: Date },
     reached: { type: Boolean, default: false },
     address: {

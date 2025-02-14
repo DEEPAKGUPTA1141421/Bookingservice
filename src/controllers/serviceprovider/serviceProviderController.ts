@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService } from "../../services/serviceprovider/serviceproviderservice";
+import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService } from "../../services/serviceprovider/serviceproviderservice";
 import { sendResponse } from "../../utils/responseHandler";
 import { CheckZodValidation } from "../../utils/helper";
 import ErrorHandler from "../../config/GlobalerrorHandler";
@@ -71,5 +71,20 @@ export const deleteServiceProvider = async (req: Request, res: Response, next: N
     sendResponse(res, 200, "Service Provider Deleted Successfully", response);
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
+  }
+};
+
+
+export const getServiceProviderLocation = async (req: Request,res: Response,next: NextFunction):Promise<void> => {
+  const { id } = req.params;
+  try {
+    const location = await getLocationFromProviderService(id);
+    if (!location) {
+      sendResponse(res,200,"Service Provider Location retrieved successfully",location);  
+      return;
+    }
+  next(new ErrorHandler("Service Provider Location not found", 404));
+  } catch (error:any) {
+    next(new ErrorHandler(error.message, 404));
   }
 };

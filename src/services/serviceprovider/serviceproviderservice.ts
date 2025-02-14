@@ -56,3 +56,49 @@ export const deleteServiceProviderService = async (id: string, next: any) => {
     next(new ErrorHandler(error.message, 500));
   }
 };
+
+import Redis from "ioredis";
+
+const redisClient = new Redis(process.env.REDIS_URL || "redis://localhost");
+
+export const getLocationFromProviderService = async (providerId: string) => {
+  // Try fetching the location from Redis
+  const geoData = await redisClient.geopos("serviceProviders", providerId);
+
+  if (geoData && geoData[0]) {
+    // If the location is found in Redis
+    const [longitude, latitude] = geoData[0];
+    return {
+      providerId,
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      },
+    };
+  }
+
+  // Fallback to MongoDB if not found in Redis
+  const serviceProvider = await ServiceProvider.findById(providerId).select(
+    "address.location"
+  );
+
+  if (
+    serviceProvider &&
+    serviceProvider.address &&
+    serviceProvider.address.location
+  ) {
+    // If found in MongoDB
+    const { coordinates } = serviceProvider.address.location;
+    return {
+      providerId,
+      location: {
+        type: "Point",
+        coordinates,
+      },
+    };
+  }
+
+  // If no data is found in both Redis and MongoDB
+  return null;
+};
+

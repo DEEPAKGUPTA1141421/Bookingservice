@@ -1,6 +1,7 @@
 import { NextFunction } from "express";
 import ErrorHandler from "../config/GlobalerrorHandler";
-
+import Redis from "ioredis";
+export const redisClient = new Redis(process.env.REDIS_URL || "redis://localhost");
 export const CheckZodValidation=(body:any,schema:any,next:NextFunction)=>{
   const validation=schema.safeParse(body);
   if(!validation.success){
@@ -9,5 +10,45 @@ export const CheckZodValidation=(body:any,schema:any,next:NextFunction)=>{
   }
   return validation;
 }
+// Function to get all service providers within a given radius (in kilometers)
+async function getProvidersWithinRadius(
+  referenceLongitude: number,
+  referenceLatitude: number,
+  radiusInKm: number
+) {
+  try {
+    // Use GEORADIUS to get the service providers within the radius
+    const result = await redisClient.georadius(
+      "serviceProviders", // Redis key where service providers' geo data is stored
+      referenceLongitude, // Reference longitude
+      referenceLatitude, // Reference latitude
+      radiusInKm, // Radius in kilometers
+      "km" // Unit: kilometers
+    );
+
+    if (result.length === 0) {
+      console.log(`No service providers found within ${radiusInKm} km.`);
+      return [];
+    }
+
+    // Return list of providers (providerId)
+    return result;
+  } catch (error) {
+    console.error("Error fetching service providers:", error);
+    throw error;
+  }
+}
+
+// Example usage:
+const getnearestSrviceProver = async (Longitude: number = -122.4194,Latitude:number =37.7749, radiusInKm:number=5 ) => {
+  const serviceProviders = await getProvidersWithinRadius(
+    Longitude,
+    Latitude,
+    radiusInKm
+  );
+  console.log(serviceProviders);
+  return serviceProviders;
+};
+
 
 
