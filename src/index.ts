@@ -12,6 +12,7 @@ import { errorMiddleware } from "./config/CustomErrorhandler";
 import { isAuthenticated } from "./middleware/authorised";
 import BookingRoutes from "./routes/bookingRoutes";
 import { connectDb } from "./config/database";
+import slotRoutes from "./routes/slotRoutes";
 
 // Kafka producer setup
 const kafka = new Kafka({
@@ -58,6 +59,7 @@ app.use("/cart", cartRoutes);
 app.use("/service-provider", ServiceRoutes);
 app.use("/find-provider", findProvider);
 app.use("/booking", BookingRoutes);
+app.use("/slots", slotRoutes);
 
 // Kafka message producer function
 async function main(topic: string, message: any) {
