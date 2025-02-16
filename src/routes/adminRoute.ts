@@ -26,6 +26,16 @@ import {
   deleteServiceOptionController,
 } from "../controllers/admin/serviceOptionController";
 
+import {
+  createFaqController,
+  getAllFaqsController,
+  getFaqsByCategoryController,
+  addFaqToCategoryController,
+  updateFaqController,
+  deleteFaqController,
+  deleteCategoryController,
+} from "../controllers/admin/faqController";
+
 const router = express.Router();
 
 router.post("/create-category", upload.array("categoryImages"), createCategory);
@@ -68,5 +78,26 @@ router.post(
 router.get("/:id", getServiceOptionController);
 router.put("/update/:id", updateServiceOptionController);
 router.delete("/delete/:id", deleteServiceOptionController);
+
+// Create a new FAQ category with FAQs
+router.post("/faqs", createFaqController);
+
+// Get all FAQ categories and their questions
+router.get("/faqs", getAllFaqsController);
+
+// Get FAQs by category
+router.get("/faqs/:category", getFaqsByCategoryController);
+
+// Add a new FAQ to an existing category
+router.post("/faqs/:category", addFaqToCategoryController);
+
+// Update an existing FAQ in a category
+router.put("/faqs/:category/:question", updateFaqController);
+
+// Delete a specific FAQ from a category
+router.delete("/faqs/:category/:question", deleteFaqController);
+
+// Delete an entire FAQ category
+router.delete("/faqs/:category", deleteCategoryController);
 
 export default router;

@@ -14,24 +14,34 @@ interface IServiceOption extends IBaseSchema {
   rating?: number; // Default rating
 }
 
-// ✅ Define Interface for ActualService
 interface IActualService extends IBaseSchema {
   name: string; // Service Name
   description?: string; // Optional Description
   images?: string[]; // Service Images
   service: Types.ObjectId; // FK to Service
+  expert_is_trained_in?: string[]; // New field: Expert training categories
+  service_excludes?: string[]; // New field: Exclusions of the service
+  what_we_need_from_you?: { image: string; description: string }[]; // New field: Required items
 }
 
 // ✅ Define Mongoose Schema for ServiceOption
 const ServiceOptionSchema = new Schema<IServiceOption>(
   {
-    actualService: { type: Schema.Types.ObjectId, ref: "ActualService", required: true },
+    actualService: {
+      type: Schema.Types.ObjectId,
+      ref: "ActualService",
+      required: true,
+    },
     name: { type: String, required: true },
     price: { type: Number, required: true },
     discount_price: { type: Number },
     duration: { type: Number, required: true },
     description: { type: String },
-    service_provider: { type: Schema.Types.ObjectId, ref: "ServiceProvider", required: true },
+    service_provider: {
+      type: Schema.Types.ObjectId,
+      ref: "ServiceProvider",
+      required: true,
+    },
     images: { type: [String], default: [] },
     rating: { type: Number, default: 0 },
   },
@@ -41,13 +51,18 @@ const ServiceOptionSchema = new Schema<IServiceOption>(
 // ✅ Indexing for Optimization
 ServiceOptionSchema.index({ actualService: 1 });
 
-// ✅ Define Mongoose Schema for ActualService
 const ActualServiceSchema = new Schema<IActualService>(
   {
     name: { type: String, required: true, unique: true },
     description: { type: String },
     images: { type: [String], default: [] },
     service: { type: Schema.Types.ObjectId, ref: "Service", required: true },
+    expert_is_trained_in: { type: [String], default: [] }, // Array of training categories
+    service_excludes: { type: [String], default: [] }, // Array of exclusions
+    what_we_need_from_you: {
+      type: [{ image: String, description: String }],
+      default: [],
+    }, // Array of required items
   },
   { timestamps: true, strict: false }
 );
@@ -56,7 +71,13 @@ const ActualServiceSchema = new Schema<IActualService>(
 ActualServiceSchema.index({ service: 1 });
 
 // ✅ Create and Export Models
-const ServiceOption = model<IServiceOption>("ServiceOption", ServiceOptionSchema);
-const ActualService = model<IActualService>("ActualService", ActualServiceSchema);
+const ServiceOption = model<IServiceOption>(
+  "ServiceOption",
+  ServiceOptionSchema
+);
+const ActualService = model<IActualService>(
+  "ActualService",
+  ActualServiceSchema
+);
 
 export { ActualService, ServiceOption };
