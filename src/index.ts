@@ -13,6 +13,7 @@ import { isAuthenticated } from "./middleware/authorised";
 import BookingRoutes from "./routes/bookingRoutes";
 import { connectDb } from "./config/database";
 import slotRoutes from "./routes/slotRoutes";
+import reviewRoutes from "./routes/reviewRoutes";
 
 // Kafka producer setup
 const kafka = new Kafka({
@@ -60,6 +61,7 @@ app.use("/service-provider", ServiceRoutes);
 app.use("/find-provider", findProvider);
 app.use("/booking", BookingRoutes);
 app.use("/slots", slotRoutes);
+app.use("/review", reviewRoutes);
 
 // Kafka message producer function
 async function main(topic: string, message: any) {
@@ -79,7 +81,7 @@ const server = app.listen(port, () => {
 });
 
 // WebSocket server setup
-const wss = new WebSocketServer({ server:server });
+const wss = new WebSocketServer({ server: server });
 
 wss.on("connection", (ws) => {
   console.log("📡 New Provider Connected");
