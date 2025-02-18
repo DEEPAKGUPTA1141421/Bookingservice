@@ -5,6 +5,7 @@ import { Schema, model, Types } from "mongoose";
 export interface IBooking extends IBaseSchema {
   user: Types.ObjectId;
   cart: Types.ObjectId;
+  bookingSlot_id: Types.ObjectId;
   status:
     | "initiated"
     | "pending"
@@ -34,6 +35,11 @@ const BookingSchema = new Schema<IBooking>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     cart: { type: Schema.Types.ObjectId, ref: "Cart", required: true },
+    bookingSlot_id: {
+      type: Schema.Types.ObjectId,
+      ref: "BookedSlot",
+      required: true,
+    },
     status: {
       type: String,
       enum: Object.values({
