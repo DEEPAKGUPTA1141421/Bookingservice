@@ -5,15 +5,13 @@ import {
   getBookings,
   deleteBooking,
 } from "../controllers/bookingController";
-import { bookingLimiter } from "../middleware/rateLimiter";
+import { authorizeRoles, isAuthenticated } from "../middleware/authorised";
 
 const router = express.Router();
 
-router.use(bookingLimiter);
-
-router.post("/", createBooking); // Create booking from cart
-router.get("/", getBookings); // Get all bookings for a user
-router.put("/:bookingId", updateBooking); // Update booking details
-router.delete("/:bookingId", deleteBooking); // Delete booking
+router.post("/", isAuthenticated, authorizeRoles("user"), createBooking); // Create booking from cart
+router.get("/", isAuthenticated, authorizeRoles("user"), getBookings); // Get all bookings for a user
+router.put("/:bookingId",isAuthenticated,authorizeRoles("user"), updateBooking); // Update booking details
+router.delete("/:bookingId",isAuthenticated,authorizeRoles("user"), deleteBooking); // Delete booking
 
 export default router;

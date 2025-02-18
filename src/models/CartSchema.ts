@@ -1,6 +1,6 @@
 import mongoose, { ObjectId } from "mongoose";
 import { IBaseSchema } from "../utils/GlobalTypescript";
-import { Schema, model, Types, Document } from "mongoose";
+import { Schema, model, Types } from  "mongoose";
 
 export interface IPromoCode extends IBaseSchema {
   code: string;
@@ -25,12 +25,12 @@ export interface IPromoCode extends IBaseSchema {
   limit_per_period?: number;
 }
 
-export interface ICartItem extends Document {
-  _id: Types.ObjectId; // Explicitly adding _id
-  service: Types.ObjectId;
-  service_option: Types.ObjectId;
-  quantity: number;
-  price: number;
+export interface ICartItem {
+  _id: Types.ObjectId;
+  service: Types.ObjectId; // Reference to ActualService
+  service_option: Types.ObjectId; // Reference to ServiceOption
+  quantity: number; // Quantity of the service
+  price: number; // Price per unit
 }
 
 export interface ICart {
@@ -52,13 +52,10 @@ interface CartItem {
   price: number;
 }
 
+
 export const CartItemSchema = new Schema<ICartItem>(
   {
-    service: {
-      type: Schema.Types.ObjectId,
-      ref: "ActualService",
-      required: true,
-    }, // FK to Service
+    service: { type: Schema.Types.ObjectId, ref: "ActualService", required: true }, // FK to Service
     service_option: {
       type: Schema.Types.ObjectId,
       ref: "ServiceOption",
@@ -70,6 +67,8 @@ export const CartItemSchema = new Schema<ICartItem>(
   { _id: false }
 );
 
+
+
 const PromoCodeSchema = new Schema<IPromoCode>(
   {
     Actualservices: [
@@ -77,7 +76,7 @@ const PromoCodeSchema = new Schema<IPromoCode>(
         type: Types.ObjectId,
         ref: "ActualService",
         required: true,
-      },
+      }
     ],
     // ✅ Move validate inside the array definition
     code: { type: String, required: true, unique: true }, // Promo code string
@@ -86,7 +85,7 @@ const PromoCodeSchema = new Schema<IPromoCode>(
     max_discount_amount: { type: Number }, // Maximum discount that can be applied
     total_available_per_user: { type: Number }, // Total number of times the promo code can be used per user
     total_available: { type: Number }, // Total number of promo codes available
-    rate: { type: Number, required: true }, // Discount rate (flat or percentage)
+    rate: { type: Number,required:true }, // Discount rate (flat or percentage)
     rate_type: { type: String, enum: ["flat", "percentage"] }, // Rate type, either flat or percentage
     applicable_on: { type: String, enum: ["base", "price"] }, // What the promo applies to, base price or final price
     active: { type: Boolean, default: true }, // Whether the promo code is active or not
@@ -99,15 +98,12 @@ const PromoCodeSchema = new Schema<IPromoCode>(
     min_card_txn_value: { type: Number }, // Minimum card transaction value to apply the promo
 
     // New fields
-    period: {
-      type: String,
-      enum: ["weekly", "monthly", "yearly"],
-      required: true,
-    }, // Period for the promo code validity
+    period: { type: String, enum: ["weekly", "monthly", "yearly"], required: true }, // Period for the promo code validity
     limit_per_period: { type: Number, required: true }, // Limit of how many times the promo can be applied per period
   },
   { timestamps: true }
 );
+
 
 // Cart Schema
 const CartSchema = new Schema<ICart>(
@@ -144,12 +140,9 @@ CartSchema.index({ user: 1 });
 const Cart = model<ICart>("Cart", CartSchema);
 const CartItem = model<ICartItem>("CartItem", CartItemSchema);
 const PromoCode = model<IPromoCode>("PromoCode", PromoCodeSchema);
-PromoCodeSchema.path("Actualservices").validate(function (
-  items: Types.ObjectId[]
-) {
+PromoCodeSchema.path("Actualservices").validate(function (items: Types.ObjectId[]) {
   const uniqueServiceOptions = new Set(items.map((item) => item.toString()));
   return uniqueServiceOptions.size === items.length;
-},
-"Duplicate service_option found in Actualservices.");
+}, "Duplicate service_option found in Actualservices.");
 
 export { CartItem, Cart, PromoCode };

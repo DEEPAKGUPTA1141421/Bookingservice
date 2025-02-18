@@ -200,3 +200,11 @@ export const generateUpcomingTimeSlots = (endTime:string) => {
   console.log("slots", slots);
   return slots;
 };
+
+export const generateTransactionId = () =>
+  `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+export const generateOtp = (): string =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
+

@@ -10,24 +10,21 @@ import {
   updateAvailability,
 } from "../controllers/serviceprovider/serviceProviderController";
 import upload from "../middleware/upload";
-import { apiLimiter } from "../middleware/rateLimiter";
-
+import { isAuthenticated } from "../middleware/authorised";
 const router = Router();
-
-router.use(apiLimiter);
-
 router.post("/create", upload.single("providerpicture"), createServiceProvider);
-router.get("/all", getAllServiceProviders);
-router.get("/get/:id", getServiceProviderById);
+router.get("/all",isAuthenticated, getAllServiceProviders);
+router.get("/get/:id",isAuthenticated, getServiceProviderById);
 router.put(
   "/update/:id",
+  isAuthenticated,
   upload.single("serviceproviderpicture"),
   updateServiceProvider
 );
-router.delete("/delete/:id", deleteServiceProvider);
-router.get("/location/:id", getServiceProviderLocation);
+router.delete("/delete/:id",isAuthenticated, deleteServiceProvider);
+router.get("/location/:id",isAuthenticated, getServiceProviderLocation);
 
-router.post("/create-availibility", createAvailability);
-router.put("/update-availibility", updateAvailability);
+router.post("/create-availibility",isAuthenticated, createAvailability);
+router.put("/update-availibility",isAuthenticated, updateAvailability);
 
 export default router;

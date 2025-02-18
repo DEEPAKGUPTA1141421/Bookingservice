@@ -40,3 +40,9 @@ export interface GetBookSlotType {
     };
   };
 }
+
+export interface initiatedPaymentType {
+  userId: Types.ObjectId;
+  booking: Types.ObjectId;
+  amount: number;
+}

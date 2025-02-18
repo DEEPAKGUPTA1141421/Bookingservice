@@ -17,15 +17,18 @@ import { CheckZodValidation } from "../utils/helper";
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = process.env.JWT_SECRET as string;
 const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "strict" as const,
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 const LOGOUT_COOKIE_OPTIONS = { ...COOKIE_OPTIONS, maxAge: 0 };
-const generateToken = (userId: string) =>
-  jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+const generateToken = (userId: string) => {
+  const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+  console.log("token", token);
+  return token;
+}
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -165,3 +168,4 @@ export const deleteUser = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
+

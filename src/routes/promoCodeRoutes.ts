@@ -7,17 +7,15 @@ import {
   deletePromoCode,
   applyPromoCode,
 } from "../controllers/promoCodeController";
-import { apiLimiter } from "../middleware/rateLimiter";
+import { authorizeRoles, isAuthenticated } from "../middleware/authorised";
 
 const router = Router();
 
-router.use(apiLimiter);
-
-router.post("/", createPromoCode);  // Create Promo Code
-router.get("/", getPromoCodes);  // Get all Promo Codes
-router.get("/:id", getPromoCodeById);  // Get Promo Code by ID
-router.put("/:id",  updatePromoCode);  // Update Promo Code
-router.delete("/:id",  deletePromoCode);  // Delete Promo Code
-router.post("/apply", applyPromoCode);  // Apply Promo Code
+router.post("/",isAuthenticated,authorizeRoles("admin"), createPromoCode);  // Create Promo Code
+router.get("/",isAuthenticated,authorizeRoles("user","admin") ,getPromoCodes);  // Get all Promo Codes
+router.get("/:id",isAuthenticated,authorizeRoles("user","admin"), getPromoCodeById);  // Get Promo Code by ID
+router.put("/:id",isAuthenticated, authorizeRoles("admin"), updatePromoCode);  // Update Promo Code
+router.delete("/:id",isAuthenticated, authorizeRoles("admin"), deletePromoCode);  // Delete Promo Code
+router.post("/apply",isAuthenticated,authorizeRoles("user"), applyPromoCode);  // Apply Promo Code
 
 export default router;

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { WebSocketServer } from "ws";
 import { Kafka } from "kafkajs";
+import cookieParser from "cookie-parser";
 import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
 import AdminRoutes from "./routes/adminRoute";
@@ -14,7 +15,7 @@ import BookingRoutes from "./routes/bookingRoutes";
 import { connectDb } from "./config/database";
 import slotRoutes from "./routes/slotRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
-
+import PayemntRoutes from "./routes/paymentRoute"
 // Kafka producer setup
 const kafka = new Kafka({
   clientId: "my-app",
@@ -24,6 +25,7 @@ const producer = kafka.producer();
 
 // Express app setup
 const app = express();
+app.use(cookieParser());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -62,6 +64,7 @@ app.use("/find-provider", findProvider);
 app.use("/booking", BookingRoutes);
 app.use("/slots", slotRoutes);
 app.use("/review", reviewRoutes);
+app.use("/payment", PayemntRoutes);
 
 // Kafka message producer function
 async function main(topic: string, message: any) {

@@ -7,14 +7,19 @@ import {
   logoutUser,
 } from "../controllers/authController";
 import upload from "../middleware/upload";
-import { authLimiter, otpLimiter } from "../middleware/rateLimiter";
+import { authorizeRoles, isAuthenticated } from "../middleware/authorised";
 
 const router = express.Router();
 
-router.post("/send-otp", otpLimiter, sendOtp);
-router.post("/verify-otp", otpLimiter, verifyOtp);
-router.post("/edit/:id", upload.single("profilePicture"), editUser);
-router.post("/logout", logoutUser);
-router.delete("/delete/:user_id", authLimiter, deleteUser);
+router.post("/send-otp", sendOtp);
+router.post("/verify-otp", verifyOtp);
+router.post("/edit/:id",isAuthenticated,authorizeRoles("user"), upload.single("profilePicture"), editUser);
+router.post("/logout", isAuthenticated, authorizeRoles("user"), logoutUser);
+router.delete(
+  "/delete/:user_id",
+  isAuthenticated,
+  authorizeRoles("user"),
+  deleteUser
+);
 
 export default router;

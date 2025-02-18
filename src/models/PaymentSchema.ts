@@ -10,7 +10,7 @@ export interface IPayment extends IBaseSchema {
   currency: string; // Currency type (INR, USD, etc.)
   method: "cash" | "credit_card" | "upi" | "wallet"; // Payment Method
   transactionId?: string; // Unique transaction ID
-  status: "initiated" | "pending" | "paid" | "failed"; // Payment status
+  status: "INITIATED" | "PENDING" | "SUCCESS" | "FAILED"; // Payment status
   pg_response: Record<string, unknown>; // Payment Gateway response (dynamic)
   createdAt: Date; // Payment creation date
 }
@@ -20,12 +20,19 @@ const PaymentSchema = new mongoose.Schema<IPayment>(
   {
     booking: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    serviceProvider: { type: Schema.Types.ObjectId, ref: "ServiceProvider", required: true },
     amount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
-    method: { type: String, enum: ["cash", "credit_card", "upi", "wallet"], required: true },
-    transactionId: { type: String, unique: true },
-    status: { type: String, enum: ["initiated", "pending", "paid", "failed"], default: "initiated" },
+    method: {
+      type: String,
+      enum: ["cash", "credit_card", "upi", "wallet"],
+      required: true,
+    },
+    transactionId: { type: String, unique: true,required:true },
+    status: {
+      type: String,
+      enum: ["INITIATED", "PENDING", "SUCCESS", "FAILED"],
+      default: "INITIATED",
+    },
     pg_response: { type: Schema.Types.Mixed, default: {} },
     createdAt: { type: Date, default: Date.now },
   },

@@ -85,7 +85,7 @@ export const deleteBookingService = async (bookingId: string) => {
       message: "Booking canceled successfully (COD). Provider notified.",
     };
   } else {
-    if (payment.status === "paid") {
+    if (payment.status === "SUCCESS") {
       // Call refund API logic here if needed
     }
 
