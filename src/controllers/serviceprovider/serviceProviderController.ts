@@ -1,9 +1,10 @@
-import { Request, Response, NextFunction } from "express";
-import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService } from "../../services/serviceprovider/serviceproviderservice";
+import { Request, Response, NextFunction, response } from "express";
+import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService, UpdateAvailabilityService, createAvailabilityservice } from "../../services/serviceprovider/serviceproviderservice";
 import { sendResponse } from "../../utils/responseHandler";
 import { CheckZodValidation } from "../../utils/helper";
 import ErrorHandler from "../../config/GlobalerrorHandler";
-import { createServiceProviderSchema, updateServiceProviderSchema } from "../../validations/service_provider_validation";
+import { createAvailabilitySchema, createServiceProviderSchema, UpdateAvailabilitySchema, updateServiceProviderSchema } from "../../validations/service_provider_validation";
+import { create_status_return } from "../../utils/GlobalTypescript";
 
 // Create a new service provider
 export const createServiceProvider = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
@@ -88,3 +89,46 @@ export const getServiceProviderLocation = async (req: Request,res: Response,next
     next(new ErrorHandler(error.message, 404));
   }
 };
+
+export const createAvailability = async (req: Request, res: Response,next:NextFunction):Promise<void> => {
+  try {
+    const validatedData = CheckZodValidation(req.body, createAvailabilitySchema, next);
+    if (!validatedData.success) {
+      next(new ErrorHandler("Validation failed", 500));
+      return;
+    }
+    const response: create_status_return = await createAvailabilityservice(validatedData.data);
+    if (response.status != "created" && response.status != "exists") {
+      next(new ErrorHandler("Availability could not be created", 501));
+      return;
+    } else {
+      sendResponse(res, 201, "Availability created successfully", response);
+    }
+  } catch (error:any) {
+    next(new ErrorHandler(error.message, 501));
+  }
+};
+
+export const updateAvailability = async (req: Request, res: Response,next:NextFunction) => {
+  try {
+    const validatedData = CheckZodValidation(req.body, UpdateAvailabilitySchema, next);
+    if (!validatedData.success) {
+      next(new ErrorHandler("Validation failed", 500));
+      return;
+    }
+    console.log("in controller",validatedData.data);
+    const response:create_status_return = await UpdateAvailabilityService(validatedData.data);
+    if (response.status == "exists"){
+      sendResponse(res, 302, "Availability already exists", response);
+      return; 
+    }
+    else {
+      sendResponse(res, 201, "Availability updated successfully", response);
+    }
+  } catch (error:any) {
+    next(new ErrorHandler(error.message, 501));
+  }
+};
+
+
+

@@ -1,5 +1,6 @@
 import { z } from "zod";
-
+import mongoose from "mongoose";
+import { objectIdSchema } from "../utils/helper";
 export const createServiceProviderSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters long" }),
   email: z.string().email({ message: "Invalid email format" }).optional(),
@@ -79,4 +80,41 @@ export const updateServiceProviderSchema = z
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "At least one field must be provided for update",
+  });
+
+
+  export const createAvailabilitySchema = z.object({
+    providerId: objectIdSchema,
+    serviceId:objectIdSchema,
+    start_time: z.string().min(1, "Start time is required"),
+    end_time: z.string().min(1, "End time is required"),
+    latitude: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+        message: "Latitude must be a number between -90 and 90",
+      }),
+    longitude: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((val) => !isNaN(val) && val >= -180 && val <= 180, {
+        message: "Longitude must be a number between -180 and 180",
+      }),
+  });
+
+  export const UpdateAvailabilitySchema = z.object({
+    providerId: objectIdSchema,
+    serviceId: objectIdSchema,
+    latitude: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+        message: "Latitude must be a number between -90 and 90",
+      }),
+    longitude: z
+      .union([z.string(), z.number()])
+      .transform((val) => Number(val))
+      .refine((val) => !isNaN(val) && val >= -180 && val <= 180, {
+        message: "Longitude must be a number between -180 and 180",
+      }),
   });
