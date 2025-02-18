@@ -5,8 +5,11 @@ import {
   getBookings,
   deleteBooking,
 } from "../controllers/bookingController";
+import { bookingLimiter } from "../middleware/rateLimiter";
 
 const router = express.Router();
+
+router.use(bookingLimiter);
 
 router.post("/", createBooking); // Create booking from cart
 router.get("/", getBookings); // Get all bookings for a user

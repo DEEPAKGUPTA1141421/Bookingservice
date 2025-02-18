@@ -7,8 +7,11 @@ import {
   deletePromoCode,
   applyPromoCode,
 } from "../controllers/promoCodeController";
+import { apiLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
+
+router.use(apiLimiter);
 
 router.post("/", createPromoCode);  // Create Promo Code
 router.get("/", getPromoCodes);  // Get all Promo Codes

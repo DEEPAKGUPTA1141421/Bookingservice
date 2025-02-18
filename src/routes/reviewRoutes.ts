@@ -6,8 +6,11 @@ import {
   updateReviewController,
   deleteReviewController,
 } from "../controllers/reviewController";
+import { reviewLimiter } from "../middleware/rateLimiter";
 
 const router = express.Router();
+
+router.use(reviewLimiter);
 
 router.post("/reviews", createReviewController); // ✅ Create Review
 router.get("/reviews", getAllReviewsController); // ✅ Get All Reviews

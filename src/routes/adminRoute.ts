@@ -1,5 +1,6 @@
 import express from "express";
 import upload from "../middleware/upload";
+import { apiLimiter } from "../middleware/rateLimiter";
 import {
   createCategory,
   deleteCategory,
@@ -37,6 +38,8 @@ import {
 } from "../controllers/admin/faqController";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 router.post("/create-category", upload.array("categoryImages"), createCategory);
 router.get("/get-category/:id", getCategory);

@@ -4,9 +4,11 @@ import {
   getCart,
   removeFromCart,
 } from "../controllers/cartController";
-
+import { apiLimiter } from "../middleware/rateLimiter";
 
 const router = express.Router();
+
+router.use(apiLimiter);
 
 router.post("/add", addToCart);
 router.get("/getitems/:id", getCart);
