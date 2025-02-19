@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import ErrorHandler from "../config/GlobalerrorHandler";
 import { sendResponse } from "../utils/responseHandler";
-import User from "../models/UserSchema";
+import User, { IUser } from "../models/UserSchema";
 import Otp from "../models/OtpSchema";
 import { z } from "zod";
 import {
@@ -13,24 +13,23 @@ import {
   verifyOtpSchema,
   editUserSchema,
 } from "../validations/authcontroller_validation";
-import { CheckZodValidation } from "../utils/helper";
+import { CheckZodValidation, generateOtp } from "../utils/helper";
+import { IRequest } from "../middleware/authorised";
 
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
-const COOKIE_OPTIONS = {
+export const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "strict" as const,
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 const LOGOUT_COOKIE_OPTIONS = { ...COOKIE_OPTIONS, maxAge: 0 };
-const generateToken = (userId: string) => {
+export const generateToken = (userId: string) => {
   const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
   console.log("token", token);
   return token;
 }
-const generateOtp = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString();
 
 export const sendOtp = async (
   req: Request,
@@ -164,6 +163,15 @@ export const deleteUser = async (
 
     res.clearCookie("token", LOGOUT_COOKIE_OPTIONS);
     res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getUserProfile = async (req: IRequest, res: Response): Promise<void> => {
+  try {
+    const u = req.user;
+    sendResponse(res, 201, "Profile View", u);
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }

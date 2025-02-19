@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { Kafka } from "kafkajs";
 import cookieParser from "cookie-parser";
 import locationRoutes from "./routes/locationRoutes";
@@ -16,6 +16,7 @@ import { connectDb } from "./config/database";
 import slotRoutes from "./routes/slotRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import PayemntRoutes from "./routes/paymentRoute"
+import { sendRegistrationEmail } from "./config/mailer";
 // Kafka producer setup
 const kafka = new Kafka({
   clientId: "my-app",
@@ -26,9 +27,9 @@ const producer = kafka.producer();
 // Express app setup
 const app = express();
 app.use(cookieParser());
-app.use(cors());
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cors());
 
 // Middleware for setting Content-Security-Policy
 app.use((req, res, next) => {
@@ -43,8 +44,18 @@ const port = 4000;
 connectDb();
 
 // Test endpoint
-app.get("/test", isAuthenticated, (req, res, next) => {
+app.get("/test", isAuthenticated, async(req, res, next):Promise<void> => {
+  await sendRegistrationEmail({
+    to: "iamdeepak9608@gmail.com",
+    userName: "John Doe",
+    userEmail: "johndoe@example.com",
+    userPhone: "+1234567890",
+    companyName: "My Company",
+    companyVenue: "123 Business St, NY",
+    loginUrl: "https://yourwebsite.com/login",
+  });
   res.status(200).json({ success: true });
+  return;
 });
 
 // Root endpoint
@@ -84,30 +95,39 @@ const server = app.listen(port, () => {
 });
 
 // WebSocket server setup
-const wss = new WebSocketServer({ server: server });
+export const wss = new WebSocketServer({ server: server });
+// Store connected providers
+export const connectedProviders = new Map<string, WebSocket>();
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   console.log("📡 New Provider Connected");
 
-  // Send a welcome message to the connected provider
-  ws.send(JSON.stringify({ message: "Hello World" }));
+  ws.on("message", (message: string) => {
+    const { type } = JSON.parse(message);
+    if (type == "connection") {
+       try {
+         const { providerId } = JSON.parse(message);
 
-  // Listen for incoming messages from the WebSocket client
-  ws.on("message", async (message: string) => {
-    console.log(`📩 Received message: ${message}`);
-    try {
-      const { ActualService, providerId, latitude, longitude } =
-        JSON.parse(message);
-
-      // Send location update to Kafka
-      await main("location-update", {
-        key: ActualService,
-        value: JSON.stringify({ providerId, latitude, longitude }),
-      });
-
-      console.log(`📍 Location sent to Kafka: ${providerId}`);
-    } catch (error) {
-      console.error("Error processing WebSocket message:", error);
+         // Store provider's WebSocket connection
+         if (providerId) {
+           connectedProviders.set(providerId, ws);
+           console.log(`✅ Provider ${providerId} connected`);
+         }
+       } catch (error) {
+         console.error("Error processing WebSocket message:", error);
+       } 
     }
   });
+
+  ws.on("close", () => {
+    // Remove provider on disconnect
+    connectedProviders.forEach((socket, providerId) => {
+      if (socket === ws) {
+        connectedProviders.delete(providerId);
+        console.log(`❌ Provider ${providerId} disconnected`);
+      }
+    });
+  });
 });
+
+

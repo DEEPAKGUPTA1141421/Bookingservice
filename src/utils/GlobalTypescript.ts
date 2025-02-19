@@ -21,7 +21,7 @@ export interface getAvailiblityObj {
 }
 
 export interface GetBookSlotType {
-  providerId: string;
+  providerIds: string[];
   serviceId: string;
   date: string;
   startTime: string;
@@ -45,4 +45,18 @@ export interface initiatedPaymentType {
   userId: Types.ObjectId;
   booking: Types.ObjectId;
   amount: number;
+}
+
+export interface getTypeAutoComplete {
+  keyword: string;
+  cityLat: number;
+  cityLng: number;
+  radius: number;
+}
+
+export interface OtpVerficationType {
+  bookingId: Types.ObjectId
+  userid: Types.ObjectId;
+  providerLat: number;
+  providerLon: number;
 }

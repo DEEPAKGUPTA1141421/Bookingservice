@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction, response } from "express";
-import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService, UpdateAvailabilityService, createAvailabilityservice } from "../../services/serviceprovider/serviceproviderservice";
+import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService, UpdateAvailabilityService, createAvailabilityservice, reachedAtUserLocationService } from "../../services/serviceprovider/serviceproviderservice";
 import { sendResponse } from "../../utils/responseHandler";
 import { CheckZodValidation } from "../../utils/helper";
 import ErrorHandler from "../../config/GlobalerrorHandler";
-import { createAvailabilitySchema, createServiceProviderSchema, UpdateAvailabilitySchema, updateServiceProviderSchema } from "../../validations/service_provider_validation";
+import { createAvailabilitySchema, createServiceProviderSchema, otpVerificationatUserLocationSchema, UpdateAvailabilitySchema, updateServiceProviderSchema } from "../../validations/service_provider_validation";
 import { create_status_return } from "../../utils/GlobalTypescript";
-
+import { COOKIE_OPTIONS, generateToken } from "../authController";
+import crypto from "crypto";
+import User from "../../models/UserSchema";
+import Otp from "../../models/OtpSchema";
+import { verifyOtpSchema } from "../../validations/authcontroller_validation";
+import { Booking } from "../../models/BookingSchema";
 // Create a new service provider
 export const createServiceProvider = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
@@ -129,6 +134,66 @@ export const updateAvailability = async (req: Request, res: Response,next:NextFu
     next(new ErrorHandler(error.message, 501));
   }
 };
+
+export const reachedAtUserLocation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const validatedData = CheckZodValidation(
+      req.body,
+      otpVerificationatUserLocationSchema,
+      next
+    );
+
+    if (!validatedData.success) {
+      next(new ErrorHandler("Validation failed", 500));
+      return;
+    }
+    const response: create_status_return =
+      await reachedAtUserLocationService(validatedData.data);
+  } catch (error: any) {
+    next(new ErrorHandler(error.message, 501));
+  }
+};
+
+export const OtpVerifyAtUserLocation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const {  otp,userId,bookingId } = req.body;
+
+    const latestOtp = await Otp.findOne({
+      user_id: userId,
+      is_used: false,
+    }).sort({ createdAt: -1 });
+    if (!latestOtp || new Date(latestOtp.expires_at) < new Date())
+      return next(new ErrorHandler("OTP expired or invalid", 400));
+
+    const hashedInputOtp = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
+    if (hashedInputOtp !== latestOtp.otp_code)
+      return next(new ErrorHandler("Invalid OTP", 400));
+    await Otp.updateOne({ _id: latestOtp._id }, { is_used: true });
+    const booking = await Booking.findById(bookingId, { status: 1 });
+    if (!booking) {
+      next(new ErrorHandler("Booking Not Found", 404));
+      return;
+    }
+    booking.status = 'verified';
+    await booking?.save();
+    sendResponse(res, 200, "OTP verified successfully",{});
+  } catch (error) {
+    const err = error as Error;
+    next(new ErrorHandler(err.message, 400));
+  }
+};
+
 
 
 

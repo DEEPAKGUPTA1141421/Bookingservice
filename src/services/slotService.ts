@@ -1,6 +1,6 @@
 import { ServiceProviderAvailability } from "../models/ServiceProviderAvailabilitySchema";
 import { BookedSlot } from "../models/BookedSlotSchema";
-import { generateAvailableSlots, generateUpcomingTimeSlots, getAvailableProvidersFromRedis } from "../utils/helper";
+import { convertStringToObjectId, generateAvailableSlots, generateUpcomingTimeSlots, getAvailableProvidersFromRedis } from "../utils/helper";
 import ErrorHandler from "../config/GlobalerrorHandler";
 import { getAvailiblityObj, GetBookSlotType } from "../utils/GlobalTypescript";
 import mongoose,{Types} from "mongoose";
@@ -59,92 +59,82 @@ export const getAvailableSlots = async (obj:getAvailiblityObj):Promise<Record<st
       throw new ErrorHandler(error.message, 501);
     }
 };
-
 export const bookSlot = async (obj: GetBookSlotType) => {
   console.log("we hit the service level");
+
   const session = await mongoose.startSession();
   session.startTransaction();
-  console.log("start transcation");
+
   try {
-    const providerAvailability =
-      await ServiceProviderAvailability.findOneAndUpdate(
-        {
-          provider: new mongoose.Types.ObjectId(obj.providerId),
-          date: obj.date,
-          is_active: true,
-        },
-        {},
-        { session, new: true }
-      );
-    if (!providerAvailability) {
-      console.log("fail to find");
-      await session.abortTransaction();
-      session.endSession();
-      return null;
-    }
-
-    // Check if slot is already booked
-
-    console.log("befire book Slot");
-    console.log("Happy Ending the Flow after everything");
-    const startTimeInMinutes = timeToMinutes(obj.startTime);
-    const endTimeInMinutes = timeToMinutes(obj.endTime);
-
-    // book slot is not working correctly for now 
-    const existingBooking = await BookedSlot.findOne(
+    // Fetch only required fields using `.lean()`
+    console.log(obj.providerIds);
+    const providerAvailabilities = await ServiceProviderAvailability.find(
       {
-        provider: new mongoose.Types.ObjectId(obj.providerId),
-        date: obj.date,
-        start_time: { $gte: startTimeInMinutes }, // start time must be greater than or equal to requested start time
-        end_time: { $lte: endTimeInMinutes }, // end time must be less than or equal to requested end time
+        provider: {
+          $in: obj.providerIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        is_active: true,
       },
-      null,
-      { session }
-    );
-    console.log("Happy Ending the Flow after everything");
-    if (existingBooking) {
+      { provider: 1, available_bit: 1 } // Select only the required fields
+    ).lean(); // Use lean() to get plain JavaScript objects
+
+    if (!providerAvailabilities.length) {
+      console.log("No providers available for booking");
       await session.abortTransaction();
       session.endSession();
       return null;
     }
 
-    // Update available_bit (Revert the bit)
-    const slotIndex = getIndex(obj.startTime); // Get bit index
-    const slotDuration = obj.slotTiming / 30; // Number of slots to update
-    let availableBit = providerAvailability.available_bit;
+    let bookedSlot;
+    let firstProvider = true;
 
-    console.log("slotIndex", slotIndex, slotDuration,availableBit);
+    for (let providerAvailability of providerAvailabilities) {
+      const providerId = providerAvailability.provider.toString();
+      const slotIndex = getIndex(obj.startTime);
+      const slotDuration = obj.slotTiming / 30;
+      let availableBit = providerAvailability.available_bit;
 
-
-    for (let i = slotIndex; i < slotIndex + slotDuration; i++) {
-      console.log(i);
-      if (((availableBit >> i) & 1) === 0) {
-        // Slot already booked, rollback
-        await session.abortTransaction();
-        session.endSession();
-        return null;
+      if (!checkConsecutive(availableBit, slotIndex, slotDuration)) {
+        continue; // Skip unavailable provider
       }
-      availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
-    }
-    console.log("after change available bit", availableBit);
-    providerAvailability.available_bit = availableBit;
-    await providerAvailability.save({ session });
 
-    // Book the slot
-    const bookedSlot = new BookedSlot({
-      provider: obj.providerId,
-      service: obj.serviceId,
-      date: obj.date,
-      start_time: convertTimeToDate(obj.startTime),
-      end_time: convertTimeToDate(obj.endTime),
-      slotTiming:obj.slotTiming
-    });
+      if (firstProvider) {
+        // Create `bookedSlot` with the first available provider
+        bookedSlot = new BookedSlot({
+          providers: [convertStringToObjectId(providerId)],
+          service: convertStringToObjectId(obj.serviceId),
+          date: obj.date,
+          start_time: convertTimeToDate(obj.startTime),
+          end_time: convertTimeToDate(obj.endTime),
+          slotTiming: obj.slotTiming,
+        });
+
+        await bookedSlot.save({ session });
+        firstProvider = false;
+      } else {
+        // Push providerId to existing bookedSlot
+        if (bookedSlot) {
+          bookedSlot.providers.push(convertStringToObjectId(providerId));
+        }
+      }
+    }
+
+    if (!bookedSlot) {
+      console.log("No suitable providers found");
+      await session.abortTransaction();
+      session.endSession();
+      return null;
+    }
+
+    await bookedSlot.save({ session });
+
+    // Create the Booking document
     const booking = new Booking({
-      user: obj.userId, // Assuming you have a userId in the obj
-      cart: obj.cartId, // Assuming you have a cartId in the obj
-      bookingSlot_id:bookedSlot.id,
+      user: obj.userId,
+      cart: obj.cartId,
+      bookingSlot_id: bookedSlot.id,
       bookingDate: new Date(),
-      scheduledTime: true, // You can set this dynamically based on your requirements
+      scheduledTime: true,
       address: {
         street: obj.address.street,
         city: obj.address.city,
@@ -155,21 +145,24 @@ export const bookSlot = async (obj: GetBookSlotType) => {
           coordinates: [
             obj.address.location.coordinates[0],
             obj.address.location.coordinates[1],
-          ], // Assuming you have latitude and longitude in the obj
+          ],
         },
       },
     });
+
     await booking.save({ session });
-    await bookedSlot.save({ session });   
+
     await session.commitTransaction();
     session.endSession();
+
     return bookedSlot;
-  } catch (error:any) {
+  } catch (error: any) {
     await session.abortTransaction();
     session.endSession();
-    throw new ErrorHandler(error.message,501);
+    throw new ErrorHandler(error.message, 501);
   }
 };
+
 
 const formatTime = (date: Date): string => {
   let hours = date.getHours();
@@ -186,7 +179,7 @@ const formatTime = (date: Date): string => {
 };
 
 
-const getIndex = (startTime: string): number => {
+export const getIndex = (startTime: string): number => {
   let currhour:string = startTime.split(":")[0];
   let currminute:string = startTime.split(":")[1];
   let hour = 8, minute = 0, index = 0;
@@ -201,9 +194,23 @@ const checkConsecutive = (
   numberOfSlots: number
 ): boolean => {
   if (timeIndex < 0) return false; 
+  let i = timeIndex;
+  if (i != 0 && ((available_bit >> (i - 1)) & 1) === 0) {
+    // left check
+    return false;
+  }
 
-  for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
-    if (((available_bit >> i) & 1) === 0) return false;
+  for (i = timeIndex; i < timeIndex + numberOfSlots; i++) {
+    console.log(i);
+    if (((available_bit >> i) & 1) === 0) {
+      // Slot already booked, rollback
+      return false;
+    }
+    // availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
+  }
+  if (((available_bit >> (i + 1)) & 1) === 0) {
+    // right check
+    return false;
   }
   return true;
 };

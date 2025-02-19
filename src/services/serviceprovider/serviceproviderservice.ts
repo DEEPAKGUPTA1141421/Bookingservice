@@ -1,14 +1,18 @@
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import ServiceProvider from "../../models/ServiceProviderSchema ";
-
+import crypto from "crypto";
 import Redis from "ioredis";
-import { create_status_return } from "../../utils/GlobalTypescript";
+import { create_status_return, OtpVerficationType } from "../../utils/GlobalTypescript";
 import {
   addServiceProviderToRedis,
   formatToDDMMYY,
+  generateOtp,
+  getDistanceInMeters,
   removeServiceProviderFromRedis,
 } from "../../utils/helper";
+import Otp from "../../models/OtpSchema";
+import { Booking } from "../../models/BookingSchema";
 // Create a new service provider
 export const createServiceProviderService = async (data: any, next: any) => {
   try {
@@ -217,4 +221,47 @@ export const UpdateAvailabilityService = async (
     throw new ErrorHandler(error.message, 501);
   }
 };
-
+export const reachedAtUserLocationService = async (
+  data: OtpVerficationType
+): Promise<create_status_return> => {
+  try {
+    const { providerLat, providerLon, bookingId, userid } = data;
+    const booking = await Booking.findById(bookingId, {
+      "address.location.coordinates": 1,
+      _id: 0,
+    }).lean();
+    if (
+      !booking ||
+      !booking.address ||
+      !booking.address.location ||
+      !booking.address.location.coordinates
+    ) {
+      throw new ErrorHandler("Booking Not Found", 404);
+    }
+    let userLat = booking?.address.location.coordinates[0],
+      userLon = booking?.address.location.coordinates[1];
+    const distance = getDistanceInMeters(
+      userLat,
+      userLon,
+      providerLat,
+      providerLon
+    );
+    const arrivalThreshold = 10;
+    let reached: boolean = distance <= arrivalThreshold;
+    if (!reached) {
+      return { status: "not reached" };
+    }
+    const otp = generateOtp();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await Otp.create({
+      user_id: userid,
+      otp_code: hashedOtp,
+      expires_at: expiresAt,
+      typeOfOtp: "reached",
+    });
+    return { status: "not reached" };
+  } catch (error: any) {
+    throw new ErrorHandler(error.message, 501);
+  }
+};

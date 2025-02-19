@@ -1,5 +1,6 @@
 import axios from "axios"
 import ErrorHandler from "../config/GlobalerrorHandler";
+import { getTypeAutoComplete } from "../utils/GlobalTypescript";
 export const getAddressFromCordinate = async (address: string) => {
     const YOUR_API_KEY = process.env.GOOGLE_MAP_API;
     const encodedAddress = encodeURIComponent(address);
@@ -47,20 +48,19 @@ export const getDistanceTimeService = async (origin: string, destination: string
     }
 }
 
-export const getAutocompleteSuggestions = async (keyword: string) => {  
+export const getAutocompleteSuggestions = async (obj: getTypeAutoComplete) => {
     try {
-        const YOUR_API_KEY = process.env.GOOGLE_MAP_API;
-        const encodedKeyword = encodeURIComponent(keyword);
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodedKeyword}&key=${YOUR_API_KEY}`;
-        const res = await axios.get(url);
-        if (res.data.status == 'OK') {
-            return res.data.predictions;
-        }
-        else {
-            throw new ErrorHandler("NO Results for Current Address", 401)
-        }
+      const YOUR_API_KEY = process.env.GOOGLE_MAP_API;
+      const { cityLat, cityLng, radius, keyword } = obj;  
+    const encodedKeyword = encodeURIComponent(keyword);
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodedKeyword}&key=${YOUR_API_KEY}&components=country:IN&location=${cityLat},${cityLng}&radius=${radius}`;
+    const res = await axios.get(url);
+    if (res.data.status == "OK") {
+      return res.data.predictions;
+    } else {
+      throw new ErrorHandler("NO Results for Current Address", 401);
     }
-    catch (error: any) {
-        throw new ErrorHandler(error.message, 404);
-    }
-}
+  } catch (error: any) {
+    throw new ErrorHandler(error.message, 404);
+  }
+};

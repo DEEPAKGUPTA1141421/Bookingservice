@@ -25,13 +25,12 @@ export const getAddressCordinate=async(req:Request,res:Response,next:NextFunctio
 
 export const getSeggestion = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const validation = CheckZodValidation(req.query, getSuggestionSchema, next);
+    const validation = CheckZodValidation(req.body, getSuggestionSchema, next);
     if (!validation.success) {
       res.status(400).json({ error: validation.error.errors });
       return;
     }
-    const { keyword } = validation.data as { keyword: string };
-    const response=await getAutocompleteSuggestions(keyword);
+    const response = await getAutocompleteSuggestions(validation.data);
     sendResponse(res, 200, "Suggestions retrieved successfully", response);
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));

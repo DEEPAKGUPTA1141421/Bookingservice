@@ -20,8 +20,10 @@ export const getAvailableSlotsSchema = z.object({
 
 export const BookSlotValidationSchema = z.object({
   userId: objectIdSchema,
-  cartId:objectIdSchema,
-  providerId: z.string().min(1, "Provider ID is required"),
+  cartId: objectIdSchema,
+  providerIds: z
+    .array(z.string().min(1, "Provider ID is required"))
+    .min(1, "At least one provider ID is required"),
   serviceId: z.string().min(1, "Service ID is required"),
   date: z.string().min(1, "Date is required"),
   startTime: z.string().min(1, "Start time is required"),
@@ -48,5 +50,5 @@ export const BookSlotValidationSchema = z.object({
           return [parsedLong, parsedLat];
         }),
     }),
-  })
+  }),
 });

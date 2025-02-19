@@ -118,3 +118,30 @@ export const updateServiceProviderSchema = z
         message: "Longitude must be a number between -180 and 180",
       }),
   });
+  
+export const otpVerificationatUserLocationSchema = z.object({
+  userLat: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+      message: "Latitude must be a number between -90 and 90",
+    }),
+  userLon: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+      message: "Latitude must be a number between -90 and 90",
+    }),
+  providerLat: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+      message: "Latitude must be a number between -90 and 90",
+    }),
+  providerLon: z
+    .union([z.string(), z.number()])
+    .transform((val) => Number(val))
+    .refine((val) => !isNaN(val) && val >= -90 && val <= 90, {
+      message: "Latitude must be a number between -90 and 90",
+    }),
+});

@@ -11,7 +11,7 @@ export interface IUser {
     email: string;
 }
 // Define the types for the request object that includes the user
-interface IRequest extends Request {
+export interface IRequest extends Request {
   user?: IUser | null; // Add user as a property to the request
 }
 

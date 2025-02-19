@@ -1,15 +1,21 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import {
   createBookingService,
   updateBookingService,
   getBookingsService,
   deleteBookingService,
+  acceptBookingService,
 } from "../services/bookingService";
 import {
+  acceptBookingSchema,
   createBookingSchema,
   updateBookingSchema,
 } from "../validations/booking_validation";
 import ErrorHandler from "../config/GlobalerrorHandler";
+import mongoose from "mongoose";
+import { Booking } from "../models/BookingSchema";
+import { sendResponse } from "../utils/responseHandler";
+import { CheckZodValidation } from "../utils/helper";
 
 export const createBooking = async (
   req: Request,
@@ -107,3 +113,19 @@ export const deleteBooking = async (
     res.status(err.statusCode).json({ message: err.message });
   }
 };
+
+export const acceptBooking = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+  try {
+    const validatedData = CheckZodValidation(req.body,acceptBookingSchema,next);
+    if (!validatedData.success) {
+      next(new ErrorHandler("Validation failed", 500));
+      return;
+    }
+    const { bookingId, providerId } = validatedData.data;
+    const result = await acceptBookingService(bookingId, providerId);
+    sendResponse(res, 201, "Accepted SuccessFully", result);
+  } catch (error: any) {
+    next(new ErrorHandler(error.message, 501));
+  }
+};
+
