@@ -12,7 +12,7 @@ import {
   deleteReviewSchema,
 } from "../validations/review_validation";
 import ErrorHandler from "../config/GlobalerrorHandler";
-import redisClient from "../config/redisCache";
+import { createRedisClient } from "../config/redisCache";
 
 // ✅ Create Review Controller
 export const createReviewController = async (
@@ -36,7 +36,7 @@ export const getAllReviewsController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const cachedReviews = await redisClient.get("reviews");
+    const cachedReviews = await createRedisClient().get("reviews");
     if (cachedReviews) {
       sendResponse(
         res,
@@ -50,7 +50,7 @@ export const getAllReviewsController = async (
     const response = await getAllReviews(next);
 
     // Cache for 15 minutes
-    await redisClient.setex("reviews", 900, JSON.stringify(response));
+    await createRedisClient().setex("reviews", 900, JSON.stringify(response));
 
     sendResponse(res, 200, "Reviews fetched successfully", response);
   } catch (error: any) {
@@ -72,7 +72,7 @@ export const getReviewByIdController = async (
     const { id } = validation.data;
 
     // Check cache
-    const cachedReview = await redisClient.get(`review:${id}`);
+    const cachedReview = await createRedisClient().get(`review:${id}`);
     if (cachedReview) {
       sendResponse(
         res,
@@ -87,7 +87,11 @@ export const getReviewByIdController = async (
     if (!response) return next(new ErrorHandler("Review not found", 404));
 
     // Cache for 10 minutes
-    await redisClient.setex(`review:${id}`, 600, JSON.stringify(response));
+    await createRedisClient().setex(
+      `review:${id}`,
+      600,
+      JSON.stringify(response)
+    );
 
     sendResponse(res, 200, "Review fetched successfully", response);
   } catch (error: any) {
