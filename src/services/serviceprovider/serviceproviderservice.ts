@@ -13,6 +13,7 @@ import {
 } from "../../utils/helper";
 import Otp from "../../models/OtpSchema";
 import { Booking } from "../../models/BookingSchema";
+import { createRedisClient } from "../../config/redisCache";
 // Create a new service provider
 export const createServiceProviderService = async (data: any, next: any) => {
   try {
@@ -68,14 +69,16 @@ export const deleteServiceProviderService = async (id: string, next: any) => {
   }
 };
 
-const redisClient = new Redis(process.env.REDIS_URL || "redis://localhost");
 
 export const getLocationFromProviderService = async (providerId: string) => {
   // Try fetching the location from Redis
   const actualService = await ServiceProvider.findById(providerId)
     .populate("actualService", "name") // Populate 'actualService' and select only 'name'
     .select("actualService"); // Ensure 'actualService' is included in the result
-  const geoData = await redisClient.geopos(`geo:${actualService}`, providerId);
+  const geoData = await createRedisClient().geopos(
+    `geo:${actualService}`,
+    providerId
+  );
 
   if (geoData && geoData[0]) {
     // If the location is found in Redis
