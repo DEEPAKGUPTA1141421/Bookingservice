@@ -12,7 +12,7 @@ import {
 } from "../../services/admin/faqService";
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { IFaq } from "../../models/FaqsSchema";
-import redisClient from "../../config/redisCache";
+import { createRedisClient } from "../../config/redisCache";
 
 type CreateFaqDTO = {
   category: string;
@@ -48,7 +48,7 @@ export const getAllFaqsController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const cachedFaqs = await redisClient.get("faqs");
+    const cachedFaqs = await createRedisClient().get("faqs");
     if (cachedFaqs) {
       sendResponse(
         res,
@@ -62,7 +62,7 @@ export const getAllFaqsController = async (
     const response = await getAllFaqs(next);
 
     // Cache for 15 minutes
-    await redisClient.setex("faqs", 900, JSON.stringify(response));
+    await createRedisClient().setex("faqs", 900, JSON.stringify(response));
 
     sendResponse(res, 200, "FAQs fetched successfully", response);
   } catch (error: any) {
@@ -79,7 +79,7 @@ export const getFaqsByCategoryController = async (
     const { category } = req.params;
 
     // Check cache
-    const cachedFaqs = await redisClient.get(`faqs:${category}`);
+    const cachedFaqs = await createRedisClient().get(`faqs:${category}`);
     if (cachedFaqs) {
       sendResponse(
         res,
@@ -94,7 +94,11 @@ export const getFaqsByCategoryController = async (
     if (!response) return next(new ErrorHandler("Category not found", 404));
 
     // Cache for 15 minutes
-    await redisClient.setex(`faqs:${category}`, 900, JSON.stringify(response));
+    await createRedisClient().setex(
+      `faqs:${category}`,
+      900,
+      JSON.stringify(response)
+    );
 
     sendResponse(res, 200, "FAQs fetched successfully", response);
   } catch (error: any) {
