@@ -14,7 +14,7 @@ import {
   updateCategoryService,
 } from "../../services/admin/Categoryservice";
 import { Category } from "../../models/CategorySchema";
-import redisClient from "../../config/redisCache";
+import { createRedisClient } from "../../config/redisCache";
 
 export const createCategory = async (
   req: Request,
@@ -65,7 +65,7 @@ export const getCategory = async (
     const { id } = validation.data;
 
     // Check Redis cache
-    const cachedCategory = await redisClient.get(`category:${id}`);
+    const cachedCategory = await createRedisClient().get(`category:${id}`);
     if (cachedCategory) {
       sendResponse(
         res,
@@ -80,7 +80,11 @@ export const getCategory = async (
     if (!category) return next(new ErrorHandler("Category not found", 404));
 
     // Store in cache for 10 minutes
-    await redisClient.setex(`category:${id}`, 600, JSON.stringify(category));
+    await createRedisClient().setex(
+      `category:${id}`,
+      600,
+      JSON.stringify(category)
+    );
 
     sendResponse(res, 200, "Category retrieved successfully", category);
   } catch (error: any) {
@@ -94,7 +98,7 @@ export const getAllCategories = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const cachedCategories = await redisClient.get("categories");
+    const cachedCategories = await createRedisClient().get("categories");
     if (cachedCategories) {
       sendResponse(
         res,
@@ -110,7 +114,11 @@ export const getAllCategories = async (
       return next(new ErrorHandler("No categories found", 404));
 
     // Cache for 10 minutes
-    await redisClient.setex("categories", 600, JSON.stringify(categories));
+    await createRedisClient().setex(
+      "categories",
+      600,
+      JSON.stringify(categories)
+    );
 
     sendResponse(res, 200, "Categories retrieved successfully", categories);
   } catch (error: any) {
