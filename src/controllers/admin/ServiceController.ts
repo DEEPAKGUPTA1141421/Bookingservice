@@ -12,7 +12,7 @@ import {
   deleteService,
 } from "../../services/admin/serviceService";
 import ErrorHandler from "../../config/GlobalerrorHandler";
-import redisClient from "../../config/redisCache";
+import { createRedisClient } from "../../config/redisCache";
 
 export const createServiceController = async (
   req: Request,
@@ -64,7 +64,7 @@ export const getServiceController = async (
     const { id } = validation.data;
 
     // Check cache
-    const cachedService = await redisClient.get(`service:${id}`);
+    const cachedService = await createRedisClient().get(`service:${id}`);
     if (cachedService) {
       sendResponse(
         res,
@@ -79,7 +79,11 @@ export const getServiceController = async (
     if (!response) return next(new ErrorHandler("Service not found", 404));
 
     // Cache for 10 minutes
-    await redisClient.setex(`service:${id}`, 600, JSON.stringify(response));
+    await createRedisClient().setex(
+      `service:${id}`,
+      600,
+      JSON.stringify(response)
+    );
 
     sendResponse(res, 200, "Service fetched successfully", response);
   } catch (error: any) {
