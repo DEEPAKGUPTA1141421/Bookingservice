@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get("/getCordinate",isAuthenticated,authorizeRoles("user"),getAddressCordinate);
 router.get("/getDistanceTime",isAuthenticated,authorizeRoles("user"),getDistanceTime)
-router.get("/autocomplete", getSeggestion);
+router.post("/autocomplete", getSeggestion);
 router.get("/states/:countryCode", getStatesByCountry);
 router.get("/cities/:countryCode/:stateCode", getCitiesByState);
 
