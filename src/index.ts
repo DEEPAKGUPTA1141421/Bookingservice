@@ -17,6 +17,7 @@ import slotRoutes from "./routes/slotRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import PayemntRoutes from "./routes/paymentRoute"
 import { sendRegistrationEmail } from "./config/mailer";
+import { createRedisClient } from "./config/redisCache";
 // Kafka producer setup
 const kafka = new Kafka({
   clientId: "my-app",
@@ -44,19 +45,40 @@ const port = 4000;
 connectDb();
 
 // Test endpoint
-app.get("/test", isAuthenticated, async(req, res, next):Promise<void> => {
-  await sendRegistrationEmail({
-    to: "iamdeepak9608@gmail.com",
-    userName: "John Doe",
-    userEmail: "johndoe@example.com",
-    userPhone: "+1234567890",
-    companyName: "My Company",
-    companyVenue: "123 Business St, NY",
-    loginUrl: "https://yourwebsite.com/login",
-  });
-  res.status(200).json({ success: true });
-  return;
+app.get("/test", isAuthenticated, async (req, res, next): Promise<void> => {
+  try {
+    const redis = createRedisClient();
+    const pattern = "service_providers:*";
+
+    const keys = await redis.keys(pattern);
+    if (keys.length === 0) {
+      res
+        .status(404)
+        .json({ success: false, message: "No service providers found" });
+    }
+
+    const result: Record<string, string[]> = {};
+
+    for (const key of keys) {
+      const keyType = await redis.type(key);
+
+      if (keyType === "zset") {
+        result[key] = await redis.zrange(key, 0, -1);
+      } else {
+        console.warn(
+          `⚠️ Skipping key ${key} because it is a ${keyType}, not a sorted set.`
+        );
+      }
+    }
+
+    res.status(200).json({ success: true, result });
+  } catch (error:any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
+
+
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -113,9 +135,16 @@ wss.on("connection", (ws, req) => {
            connectedProviders.set(providerId, ws);
            console.log(`✅ Provider ${providerId} connected`);
          }
+         else {
+           console.log("else"+JSON.parse(message));
+         }
        } catch (error) {
          console.error("Error processing WebSocket message:", error);
        } 
+    }
+    else {
+      const { latitude, longitude } = JSON.parse(message);
+       console.log("else" + latitude,longitude);
     }
   });
 
