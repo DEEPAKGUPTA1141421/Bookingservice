@@ -2,8 +2,7 @@ import { NextFunction } from "express";
 import ErrorHandler from "../config/GlobalerrorHandler";
 import mongoose, { Types } from "mongoose";
 import { z } from "zod";
-import Redis from "ioredis";
-export const redisClient = new Redis(process.env.REDIS_URL || "redis://localhost");
+import { createRedisClient } from "../config/redisCache";
 export const CheckZodValidation=(body:any,schema:any,next:NextFunction)=>{
   const validation=schema.safeParse(body);
   if(!validation.success){
@@ -21,7 +20,7 @@ async function getProvidersWithinRadius(
 ) {
   try {
     // Use GEORADIUS to get the service providers within the radius
-    const nearbyProviders = await redisClient.georadius(
+    const nearbyProviders = await createRedisClient().georadius(
       `geo:${actualService}`,
       referenceLongitude,
       referenceLatitude,
@@ -103,9 +102,9 @@ export async function addServiceProviderToRedis(
   console.log("adding it to redis now with key",key);
   console.log(typeof (latitude), typeof (longitude));
   console.log(key, longitude, latitude, providerId);
-  const result= await redisClient.zrem(key, providerId.toString());
+  const result = await createRedisClient().zrem(key, providerId.toString());
   console.log("removed",result);
-  const add=await redisClient.geoadd(
+  const add = await createRedisClient().geoadd(
     key,
     Number(longitude),
     Number(latitude),
@@ -123,7 +122,7 @@ export async function removeServiceProviderFromRedis(
 ):Promise<boolean> {
   const key = `service_providers:${serviceId}`;
 
-  const removed = await redisClient.zrem(key, providerId.toString());
+  const removed = await createRedisClient().zrem(key, providerId.toString());
   if (removed) {
     return true;
   } else {
@@ -139,7 +138,7 @@ export async function getAvailableProvidersFromRedis(
   radius: number
 ): Promise<string[]> {
   const key = `service_providers:${serviceId}`;
-  const providers = await redisClient.geosearch(
+  const providers = await createRedisClient().geosearch(
     key,
     "FROMLONLAT",
     longitude,
