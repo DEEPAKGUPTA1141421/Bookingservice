@@ -29,7 +29,7 @@ export const generateToken = (userId: string) => {
   const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
   console.log("token", token);
   return token;
-}
+};
 
 export const sendOtp = async (
   req: Request,
@@ -37,6 +37,7 @@ export const sendOtp = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log("frontend hitting me");
     const validation = CheckZodValidation(req.body, sendOtpSchema, next);
     const { phone } = validation.data;
     let user = await User.findOne({ phone });
@@ -60,7 +61,10 @@ export const sendOtp = async (
     });
 
     console.log(`✅ OTP for ${phone} (${typeOfOtp}):`, otp);
-    sendResponse(res, 200, "OTP sent successfully", { isNewUser: !user });
+    sendResponse(res, 200, "OTP sent successfully", {
+      isNewUser: !user,
+      phone: phone,
+    });
   } catch (error) {
     const err = error as Error;
     next(new ErrorHandler(err.message, 400));
@@ -73,8 +77,10 @@ export const verifyOtp = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log("getting hit by client veriftotp");
     const validation = CheckZodValidation(req.body, verifyOtpSchema, next);
     const { phone, otp } = validation.data;
+    console.log("getting hit by client veriftotp", phone, otp);
     const user = await User.findOne({ phone });
 
     if (!user) return next(new ErrorHandler("User not found", 404));
@@ -97,8 +103,10 @@ export const verifyOtp = async (
     await User.updateOne({ _id: user._id }, { status: "verified" });
 
     const token = generateToken(user._id.toString());
-    res.cookie("token", token, COOKIE_OPTIONS);
-    sendResponse(res, 200, "OTP verified successfully", { user_id: user._id });
+    sendResponse(res, 200, "OTP verified successfully", {
+      user: user,
+      token: token,
+    });
   } catch (error) {
     const err = error as Error;
     next(new ErrorHandler(err.message, 400));
@@ -119,20 +127,44 @@ export const logoutUser = (
 };
 
 export const editUser = async (
-  req: Request,
+  req: IRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const validation = CheckZodValidation(req.body, editUserSchema, next);
-    const { id } = req.params;
+    console.log("getting hitt by frontend is more for us",req.body);
+    const validation = await CheckZodValidation(req.body, editUserSchema, next);
+    console.log("failed Validation", validation);
+    if (validation && !validation.success) {
+      console.log("failed Validation");
+      return next(new ErrorHandler(validation.error.errors[0].message, 400));
+    }
+    console.log("getting hitt by frontend 2", req.user);
+    const id = req.user?._id;
+    console.log("id is", id);
     const profilePicture = req.file as Express.MulterS3.File | undefined;
-    const { name, email, phone, password, role } = validation.data;
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role,
+      latitude,
+      longitude,
+      add_address,
+    } = validation.data;
 
     const updates: Record<string, any> = {};
     if (name) updates.name = name.trim();
+    if (latitude !== undefined && longitude !== undefined && longitude!=null && latitude!=null) {
+      updates["address.location"] = {
+        type: "Point",
+        coordinates: [longitude, latitude], // Remember: MongoDB stores [longitude, latitude]
+      };
+    }
     if (email) updates.email = email.trim();
     if (phone) updates.phone = phone.trim();
+    if (add_address) updates.add_address = add_address.trim();
     if (role) updates.role = role;
     if (password) updates.password = await bcrypt.hash(password, 10);
     if (profilePicture?.location) updates.image = profilePicture.location;
@@ -142,7 +174,7 @@ export const editUser = async (
 
     const user = await User.findByIdAndUpdate(id, updates, { new: true });
     if (!user) return next(new ErrorHandler("User not found", 404));
-
+    console.log("getting response till here");
     sendResponse(res, 200, "User updated successfully", user);
   } catch (error) {
     next(new ErrorHandler("Internal server error", 500));
@@ -168,7 +200,10 @@ export const deleteUser = async (
   }
 };
 
-export const getUserProfile = async (req: IRequest, res: Response): Promise<void> => {
+export const getUserProfile = async (
+  req: IRequest,
+  res: Response
+): Promise<void> => {
   try {
     const u = req.user;
     sendResponse(res, 201, "Profile View", u);
@@ -176,4 +211,3 @@ export const getUserProfile = async (req: IRequest, res: Response): Promise<void
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
