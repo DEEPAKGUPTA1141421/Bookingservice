@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { IBaseSchema } from "../utils/GlobalTypescript";
+import { getAddressFromLatLng } from "../services/locationservice";
 
 const { Schema, model } = mongoose;
 interface IAddress {
@@ -21,6 +22,9 @@ export interface IUser extends IBaseSchema {
   status: "verified" | "unverified";
   image?: string;
   address?: IAddress;
+  current_address: string;
+  listofAddress: string[];
+  distance_current_address:string
 }
 const UserSchema = new Schema<IUser>(
   {
@@ -62,6 +66,8 @@ const UserSchema = new Schema<IUser>(
           },
         },
       },
+      current_address: { type: String, default: "" }, // ✅ Moved out of `address`
+      listofAddress: { type: [String], default: [] }, // ✅ Moved out of `address`
     },
   },
   {
@@ -72,6 +78,53 @@ const UserSchema = new Schema<IUser>(
 
 // ✅ Geospatial index applied only if "coordinates" exist
 UserSchema.index({ "address.location": "2dsphere" }, { sparse: true });
+
+UserSchema.pre("findOneAndUpdate", async function (next) {
+  const update = this.getUpdate() as any;
+
+  if (update?.["address.location"]?.coordinates) {
+    console.log("yes Update");
+    const [longitude, latitude] = update["address.location"].coordinates;
+    console.log("corr check", longitude, latitude);
+    try {
+      const fullAddress = await getAddressFromLatLng(latitude, longitude);
+
+      if (fullAddress) {
+        console.log("check full",fullAddress);
+        update.current_address = fullAddress; // ✅ Now updates at root level
+
+        if (!update.listofAddress) {
+          update.listofAddress = [];
+        }
+        update.listofAddress.unshift(fullAddress); // ✅ Now modifies root-level `listofAddress`
+      }
+    } catch (error) {
+      console.error("Google API Error:", error);
+    }
+  }
+ if (update.add_address) {
+   console.log("✅ Adding new address:", update.add_address);
+
+   // Ensure listofAddress is an array
+   const newAddress = update.add_address.trim();
+
+   // ✅ Check if the new address is already in the list
+   if (!update.listofAddress.includes(newAddress)) {
+     console.log("adding one more");
+     update.listofAddress.push(newAddress);
+   }
+
+   // ✅ Ensure the array does not exceed a limit (e.g., store only the last 5 addresses)
+   if (update.listofAddress.length > 5) {
+     update.listofAddress.pop(); // Remove the oldest entry
+   }
+
+   // ❌ Remove `add_address` so it is NOT stored in the database
+   delete update.add_address;
+ }
+
+  next();
+});
 
 const User = model<IUser>("User", UserSchema);
 export default User;
