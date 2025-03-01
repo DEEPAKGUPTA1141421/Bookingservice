@@ -2,11 +2,10 @@ import mongoose, { Document, Types, Schema } from "mongoose";
 import cluster from "cluster";
 import os from "os";
 import { Kafka, EachMessagePayload } from "kafkajs";
-import Redis from "ioredis";
 import dotenv from "dotenv";
 import { connectDb } from "./database";
 import ServiceProvider from "./ServiceProviderSchema";
-
+import { createRedisClient } from "./rediscache";
 dotenv.config();
 connectDb();
 
@@ -14,7 +13,6 @@ const BULK_SIZE = 1000;
 const BULK_UPDATE_INTERVAL = 60 * 1000; // 1 minute
 
 // Redis client setup
-const redisClient = new Redis(process.env.REDIS1_URL || "redis://localhost");
 
 // Kafka consumer setup
 const kafka = new Kafka({
@@ -75,12 +73,15 @@ if (cluster.isPrimary) {
         if (!ActualService) return;
 
         // Add the location to Redis under the corresponding key (service provider's actual service)
-        await redisClient.geoadd(`geo:${ActualService}`,longitude,latitude,providerId);
+        await createRedisClient().geoadd(`geo:${ActualService}`,longitude,latitude,providerId);
         // Store provider IDs separately for bulk updates
-        await redisClient.sadd(`providers:${ActualService}`, providerId);
+        await createRedisClient().sadd(
+          `providers:${ActualService}`,
+          providerId
+        );
         // expire the keys after 10 minutes
-        await redisClient.expire(`geo:${ActualService}`, 600);
-        await redisClient.expire(`providers:${ActualService}`, 600);
+        await createRedisClient().expire(`geo:${ActualService}`, 600);
+        await createRedisClient().expire(`providers:${ActualService}`, 600);
       },
     });
   })();
@@ -91,7 +92,7 @@ async function bulkUpdateToMongo() {
   console.log(`🔄 Starting bulk update to MongoDB...`);
 
   // Fetch all service categories dynamically
-  const serviceCategories = await redisClient.keys("geo:*"); // Example: ["geo:Plumbing", "geo:Electrician"]
+  const serviceCategories = await createRedisClient().keys("geo:*"); // Example: ["geo:Plumbing", "geo:Electrician"]
 
   let totalUpdated = 0;
 
@@ -99,7 +100,7 @@ async function bulkUpdateToMongo() {
     const actualService = serviceKey.split(":")[1]; // Extract service name
 
     // Fetch all providers under this service category
-    const providerIds = await redisClient.smembers(
+    const providerIds = await createRedisClient().smembers(
       `providers:${actualService}`
     );
 
@@ -109,7 +110,7 @@ async function bulkUpdateToMongo() {
 
     for (const providerId of providerIds) {
       // Get the geo position for each provider from Redis
-      const geoData = await redisClient.geopos(serviceKey, providerId);
+      const geoData = await createRedisClient().geopos(serviceKey, providerId);
       if (!geoData || !geoData[0]) continue;
 
       const [longitude, latitude] = geoData[0];
