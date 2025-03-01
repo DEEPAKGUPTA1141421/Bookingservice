@@ -50,7 +50,29 @@ export const editUserSchema = z
       .string()
       .min(6, { message: "Password must be at least 6 characters long" })
       .optional(),
+
+    latitude: z
+      .union([z.string(), z.number(), z.null()])
+      .transform((val) => (val !== null ? Number(val) : null))
+      .refine(
+        (val) => val === null || (!isNaN(val) && val >= -90 && val <= 90),
+        {
+          message: "Latitude must be a number between -90 and 90 or null",
+        }
+      ),
+
+    longitude: z
+      .union([z.string(), z.number(), z.null()])
+      .transform((val) => (val !== null ? Number(val) : null))
+      .refine(
+        (val) => val === null || (!isNaN(val) && val >= -180 && val <= 180),
+        {
+          message: "Longitude must be a number between -180 and 180 or null",
+        }
+      ),
+
     role: z.enum(["user", "admin", "provider"]).optional(),
+    add_address: z.string().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided for update",
