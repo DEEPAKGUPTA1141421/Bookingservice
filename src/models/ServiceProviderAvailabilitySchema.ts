@@ -12,7 +12,7 @@ export interface IServiceProviderAvailability extends IBaseSchema {
   start_time: string; // Start time of work
   end_time: string; // End time of work
   is_active: boolean; // Active status of availability
-  available_bit:number
+  available_bit:string
 }
 
 // Define Mongoose Schema for ServiceProviderAvailability
@@ -36,7 +36,11 @@ const ServiceProviderAvailabilitySchema =
       start_time: { type: String, required: true },
       end_time: { type: String, required: true },
       is_active: { type: Boolean, default: true },
-      available_bit:{type:Number, default: 0}
+      available_bit: {
+        type: String,
+        default:
+          "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      },
     },
     { timestamps: true }
   );
@@ -55,12 +59,6 @@ const calculateAvailableBits = (
   return (1 << slots) - 1;
 };
 
-ServiceProviderAvailabilitySchema.pre("save", function (next) {
-  if (this.isNew && this.start_time && this.end_time) {
-    this.available_bit = calculateAvailableBits(this.start_time, this.end_time);
-  }
-  next();
-});
 // Indexing for fast querying
 ServiceProviderAvailabilitySchema.index({ provider: 1, date: 1 });
 
