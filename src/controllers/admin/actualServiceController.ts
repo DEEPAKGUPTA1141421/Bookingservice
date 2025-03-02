@@ -13,6 +13,7 @@ import {
 } from "../../services/admin/actualServiceService";
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { sendResponse } from "../../utils/responseHandler";
+import { ActualService } from "../../models/ActualServiceSchema";
 
 // Create Actual Service
 export const createActualServiceController = async (
@@ -160,6 +161,26 @@ export const deleteActualServiceController = async (
     const { id } = validation.data;
     const response = await deleteActualService(id, next);
     if (response) sendResponse(res, 200, response.message, response);
+  } catch (error: any) {
+    next(new ErrorHandler(error.message, 500));
+  }
+};
+
+export const getAllServiceController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log("hitting service controller");
+    const response = await ActualService.find({});
+
+    if (response) {
+      sendResponse(res, 200, "List Of Serrvice", response);
+      return;
+    } else {
+      sendResponse(res, 200, "No Service Available", []);
+    }
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
   }
