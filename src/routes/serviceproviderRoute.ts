@@ -9,6 +9,7 @@ import {
   createAvailability,
   updateAvailability,
   reachedAtUserLocation,
+  getProvidersWithinRadius,
 } from "../controllers/serviceprovider/serviceProviderController";
 import upload from "../middleware/upload";
 import { isAuthenticated } from "../middleware/authorised";
@@ -25,9 +26,11 @@ router.put(
 router.delete("/delete/:id",isAuthenticated, deleteServiceProvider);
 router.get("/location/:id",isAuthenticated, getServiceProviderLocation);
 
-router.post("/create-availibility",isAuthenticated, createAvailability);
-router.put("/update-availibility", isAuthenticated, updateAvailability);
+router.post("/create-availibility", createAvailability);
+router.put("/update-availibility", updateAvailability);
 
 router.post("/otpverification", isAuthenticated, reachedAtUserLocation);
+
+router.post("/get-providers-within-radius", getProvidersWithinRadius);
 
 export default router;
