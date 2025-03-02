@@ -1,4 +1,8 @@
 import { z } from "zod";
+export const mongoObjectIdSchema = z
+  .string()
+  .min(8, { message: "Invalid ObjectID: Must be at least 8 characters long" })
+  .regex(/^[0-9a-fA-F]+$/, { message: "Invalid ObjectID format" });
 
 export const createCategorySchema = z.object({
   category: z
@@ -13,11 +17,11 @@ export const createCategorySchema = z.object({
 });
 
 export const getCategorySchema = z.object({
-  id: z.string().min(8, { message: "Invalid category ID" }),
+  id: mongoObjectIdSchema
 });
 
 export const updateCategorySchema = z.object({
-  id: z.string().min(8, { message: "Invalid category ID" }),
+  id: mongoObjectIdSchema,
   name: z
     .string()
     .min(2, { message: "Name must be at least 2 characters long" })
@@ -46,10 +50,11 @@ export const createServiceSchema = z.object({
     .array(z.string().url({ message: "Each image must be a valid URL" }))
     .nonempty({ message: "At least one image is required" }),
   category: z.string().min(8, { message: "Invalid category ID" }),
+  
 });
 
 export const updateServiceSchema = z.object({
-  id: z.string().length(24, { message: "Invalid service ID" }),
+  id: mongoObjectIdSchema,
   name: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
   images: z.array(z.string().url()).optional(),
@@ -57,7 +62,7 @@ export const updateServiceSchema = z.object({
 });
 
 export const deleteServiceSchema = z.object({
-  id: z.string().length(24, { message: "Invalid service ID" }),
+  id: mongoObjectIdSchema,
 });
 
 export const createActualServiceSchema = z.object({
@@ -89,11 +94,11 @@ export const createActualServiceSchema = z.object({
 });
 
 export const getActualServiceSchema = z.object({
-  id: z.string().length(24, { message: "Invalid Actual Service ID" }),
+  id: mongoObjectIdSchema,
 });
 
 export const updateActualServiceSchema = z.object({
-  id: z.string().length(24, { message: "Invalid Actual Service ID" }),
+  id: mongoObjectIdSchema,
   name: z.string().min(2).optional(),
   description: z.string().min(10).optional(),
   images: z.array(z.string().url()).optional(),
@@ -116,7 +121,7 @@ export const deleteActualServiceSchema = z.object({
 });
 
 export const createServiceOptionSchema = z.object({
-  actualService: z.string().min(8, { message: "Invalid Actual Service ID" }),
+  actualService: mongoObjectIdSchema,
   name: z
     .string()
     .min(2, { message: "Option name must be at least 2 characters long" }),
@@ -142,12 +147,12 @@ export const createServiceOptionSchema = z.object({
 });
 
 export const getServiceOptionSchema = z.object({
-  id: z.string().length(24, { message: "Invalid Service Option ID" }),
+  id: mongoObjectIdSchema
 });
 
 export const updateServiceOptionSchema = z.object({
-  id: z.string().length(24, { message: "Invalid Service Option ID" }),
-  actualService: z.string().length(24).optional(),
+  id: mongoObjectIdSchema,
+  actualService: mongoObjectIdSchema,
   name: z.string().min(2).optional(),
   price: z.number().min(1).optional(),
   discount_price: z.number().optional(),
@@ -158,5 +163,5 @@ export const updateServiceOptionSchema = z.object({
 });
 
 export const deleteServiceOptionSchema = z.object({
-  id: z.string().length(24, { message: "Invalid Service Option ID" }),
+  id: mongoObjectIdSchema,
 });
