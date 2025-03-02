@@ -44,11 +44,11 @@ export const getAvailableSlots = async (obj:getAvailiblityObj):Promise<Record<st
         let currslot = formatTime(now);
         let timeIndex = getIndex(currslot);
         let available_bit = 16777215;
-        if (checkConsecutive(available_bit, timeIndex, numberofSlot)) {
-          console.log("check condition");
-          if (!providerSlots[currslot]) providerSlots[currslot] = [];
-          providerSlots[currslot].push(provider);
-        }
+        // if (checkConsecutive(available_bit, timeIndex, numberofSlot)) {
+        //   console.log("check condition");
+        //   if (!providerSlots[currslot]) providerSlots[currslot] = [];
+        //   providerSlots[currslot].push(provider);
+        // }
       }
       now.setMinutes(now.getMinutes() + 30);
       }
@@ -164,7 +164,7 @@ export const bookSlot = async (obj: GetBookSlotType) => {
 };
 
 
-const formatTime = (date: Date): string => {
+export const formatTime = (date: Date): string => {
   let hours = date.getHours();
   let minutes = date.getMinutes();
 
@@ -180,40 +180,44 @@ const formatTime = (date: Date): string => {
 
 
 export const getIndex = (startTime: string): number => {
-  let currhour:string = startTime.split(":")[0];
-  let currminute:string = startTime.split(":")[1];
-  let hour = 8, minute = 0, index = 0;
-  let diff:number = Number(currhour) - hour;
-  diff = diff * 2;
-  return diff + (currminute == "30" ? 1 : 0);
+  let [currHour, currMinute] = startTime.split(":").map(Number);
+
+  // Convert hours and minutes into 15-minute slots
+  return currHour * 4 + Math.floor(currMinute / 15);
 };
 
-const checkConsecutive = (
-  available_bit: number,
+
+export const checkConsecutive = (
+  available_bit: string,
   timeIndex: number,
   numberOfSlots: number
 ): boolean => {
-  if (timeIndex < 0) return false; 
-  let i = timeIndex;
-  if (i != 0 && ((available_bit >> (i - 1)) & 1) === 0) {
-    // left check
+  if (timeIndex < 0 || timeIndex + numberOfSlots > available_bit.length)
+    return false;
+
+  // Check left boundary (if not the first slot)
+  if (timeIndex > 0 && available_bit[timeIndex - 1] === "0") {
     return false;
   }
 
-  for (i = timeIndex; i < timeIndex + numberOfSlots; i++) {
-    console.log(i);
-    if (((available_bit >> i) & 1) === 0) {
-      // Slot already booked, rollback
-      return false;
+  // Check if all required slots are available
+  for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
+    if (available_bit[i] === "0") {
+      return false; // Slot already booked
     }
-    // availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
   }
-  if (((available_bit >> (i + 1)) & 1) === 0) {
-    // right check
+
+  // Check right boundary (if not the last slot)
+  if (
+    timeIndex + numberOfSlots < available_bit.length &&
+    available_bit[timeIndex + numberOfSlots] === "0"
+  ) {
     return false;
   }
+
   return true;
 };
+
 
 function timeToMinutes(time:string) {
   const [hours, minutes] = time.split(":").map(Number);
