@@ -202,37 +202,38 @@ const ChangeBitOfProvider = async (
   timeIndex: number,
   numberOfSlots: number
 ) => {
-  const dateOnly = new Date();
-  dateOnly.setUTCHours(0, 0, 0, 0);
-  const existingAvailability = await ServiceProviderAvailability.findOne(
-    {
-      provider: convertStringToObjectId(providerId),
-      date: dateOnly,
-    },
-    { available_bit: 1 } // Projection to fetch only `available_bit`
-  );
+  return true;
+  // const dateOnly = new Date();
+  // dateOnly.setUTCHours(0, 0, 0, 0);
+  // const existingAvailability = await ServiceProviderAvailability.findOne(
+  //   {
+  //     provider: convertStringToObjectId(providerId),
+  //     date: dateOnly,
+  //   },
+  //   { available_bit: 1 } // Projection to fetch only `available_bit`
+  // );
 
-  if (!existingAvailability) return false; // If no record exists
-  let availableBit = existingAvailability.available_bit;
+  // if (!existingAvailability) return false; // If no record exists
+  // let availableBit = existingAvailability.available_bit;
 
-  // Check if all slots are available
-  for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
-    if (((availableBit >> i) & 1) === 0) {
-      return false; // Slot already booked
-    }
-    availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
-  }
+  // // Check if all slots are available
+  // for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
+  //   if (((availableBit >> i) & 1) === 0) {
+  //     return false; // Slot already booked
+  //   }
+  //   availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
+  // }
 
-  // Update the document in DB
-  const updatedDoc = await ServiceProviderAvailability.updateOne(
-    {
-      provider: convertStringToObjectId(providerId),
-      date: dateOnly,
-    },
-    { available_bit: availableBit }
-  );
+  // // Update the document in DB
+  // const updatedDoc = await ServiceProviderAvailability.updateOne(
+  //   {
+  //     provider: convertStringToObjectId(providerId),
+  //     date: dateOnly,
+  //   },
+  //   { available_bit: availableBit }
+  // );
 
-  return updatedDoc.modifiedCount > 0; // Return true if update was successful
+  // return updatedDoc.modifiedCount > 0; // Return true if update was successful
 };
 
 
