@@ -3,14 +3,20 @@ import ErrorHandler from "../config/GlobalerrorHandler";
 import mongoose, { Types } from "mongoose";
 import { z } from "zod";
 import { createRedisClient } from "../config/redisCache";
-export const CheckZodValidation=(body:any,schema:any,next:NextFunction)=>{
-  const validation=schema.safeParse(body);
-  if(!validation.success){
-    const errorMessage = validation.error.errors.map((err: any) => `${err.path.join(".")}: ${err.message}`) .join(", ");
-    throw new ErrorHandler(errorMessage, 504)
+export const CheckZodValidation = (
+  body: any,
+  schema: any,
+  next: NextFunction
+) => {
+  const validation = schema.safeParse(body);
+  if (!validation.success) {
+    const errorMessage = validation.error.errors
+      .map((err: any) => `${err.path.join(".")}: ${err.message}`)
+      .join(", ");
+    throw new ErrorHandler(errorMessage, 504);
   }
   return validation;
-}
+};
 // Function to get all service providers within a given radius (in kilometers)
 async function getProvidersWithinRadius(
   referenceLongitude: number,
@@ -29,14 +35,13 @@ async function getProvidersWithinRadius(
       "WITHCOORD"
     );
 
-
     if (nearbyProviders.length === 0) {
       console.log(`No service providers found within ${radiusInKm} km.`);
       return [];
     }
 
     // Return list of providers (providerId)
-    return nearbyProviders
+    return nearbyProviders;
   } catch (error) {
     console.error("Error fetching service providers:", error);
     throw error;
@@ -44,7 +49,12 @@ async function getProvidersWithinRadius(
 }
 
 // Example usage:
-const getnearestSrviceProvider = async (Longitude: number = -122.4194,Latitude:number =37.7749, radiusInKm:number=5,actualService:string ) => {
+const getnearestServiceProvider = async (
+  Longitude: number = -122.4194,
+  Latitude: number = 37.7749,
+  radiusInKm: number = 5,
+  actualService: string
+) => {
   const serviceProviders = await getProvidersWithinRadius(
     Longitude,
     Latitude,
@@ -54,8 +64,6 @@ const getnearestSrviceProvider = async (Longitude: number = -122.4194,Latitude:n
   console.log(serviceProviders);
   return serviceProviders;
 };
-
-
 
 export const generateAvailableSlots = (
   start: string,
@@ -93,41 +101,49 @@ export const addMinutes = (time: string, minutes: number) => {
 };
 
 export async function addServiceProviderToRedis(
-  providerId: string,
   serviceId: string,
+  providerId: string,
   latitude: number,
   longitude: number
-):Promise<boolean> {
+): Promise<boolean> {
   const key = `service_providers:${serviceId}`;
-  console.log("adding it to redis now with key",key);
-  console.log(typeof (latitude), typeof (longitude));
+  console.log("adding it to redis now with key", key);
+  console.log(typeof latitude, typeof longitude);
   console.log(key, longitude, latitude, providerId);
   const result = await createRedisClient().zrem(key, providerId.toString());
-  console.log("removed",result);
+  console.log("removed", result);
   const add = await createRedisClient().geoadd(
     key,
     Number(longitude),
     Number(latitude),
     String(providerId)
   );
-  console.log("added",add);
+  console.log("added", add);
   if (add) return true;
   else return false;
 }
 
-
 export async function removeServiceProviderFromRedis(
   providerId: string,
   serviceId: string
-):Promise<boolean> {
+): Promise<boolean> {
+  const redis = createRedisClient();
+  serviceId = serviceId.toString();
   const key = `service_providers:${serviceId}`;
+  console.log("at redis client end", key);
 
-  const removed = await createRedisClient().zrem(key, providerId.toString());
-  if (removed) {
-    return true;
-  } else {
+  // Check if the provider exists
+  const exists = await redis.zscore(key, providerId.toString());
+  if (exists === null) {
+    console.log(`⚠️ Provider ${providerId} not found in ${key}`);
     return false;
   }
+
+  // Remove provider
+  const removed = await redis.zrem(key, providerId.toString());
+  console.log(`✅ Removed Provider ${providerId} from ${key}:`, removed);
+
+  return removed > 0;
 }
 
 
@@ -136,8 +152,9 @@ export async function getAvailableProvidersFromRedis(
   latitude: number,
   longitude: number,
   radius: number
-): Promise<string[]> {
+): Promise<any> {
   const key = `service_providers:${serviceId}`;
+  console.log("key check", key);
   const providers = await createRedisClient().geosearch(
     key,
     "FROMLONLAT",
@@ -145,11 +162,12 @@ export async function getAvailableProvidersFromRedis(
     latitude,
     "BYRADIUS",
     radius,
-    "km",
-    "ASC" // Sort by nearest first
+    "m", // meters
+    "WITHCOORD", // Get coordinates
+    "WITHDIST" // Get distance
   );
-
-  return (providers as string[]) || [];
+  console.log("list of available providers", providers);
+  return providers || [];
 }
 
 export const objectIdSchema = z
@@ -160,21 +178,20 @@ export const objectIdSchema = z
   })
   .transform((val) => new mongoose.Types.ObjectId(val));
 
-
 export const formatToDDMMYY = (date: Date): string => {
   const formattedDate = date.toISOString().split("T")[0];
   const [year, month, day] = formattedDate.split("-");
   return `${day}-${month}-${year.slice(2)}`; // "17-02-25"
-};  
+};
 
 export const getdateTypeForMongoose = () => {
-   const dateOnly = new Date();
+  const dateOnly = new Date();
   dateOnly.setUTCHours(0, 0, 0, 0);
-  return dateOnly
-}
+  return dateOnly;
+};
 
-export const generateUpcomingTimeSlots = (endTime:string) => {
-  const slots:string[] = [];
+export const generateUpcomingTimeSlots = (endTime: string) => {
+  const slots: string[] = [];
   const now = new Date();
   console.log(now.getMinutes());
   console.log(now.getHours());
@@ -206,8 +223,6 @@ export const generateTransactionId = () =>
 export const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-
-
 const toRadians = (degree: number): number => {
   return (degree * Math.PI) / 180;
 };
@@ -233,9 +248,9 @@ export const getDistanceInMeters = (
   return R * c; // Distance in meters
 };
 
-export const convertStringToObjectId=(Id:string)=>{
-  return new mongoose.Types.ObjectId(Id)
-}
+export const convertStringToObjectId = (Id: string) => {
+  return new mongoose.Types.ObjectId(Id);
+};
 
 export const convertToHHMM = (isoString: string): string => {
   const date = new Date(isoString);
