@@ -49,3 +49,4 @@ export const bookSlot = async (req: Request, res: Response,next: NextFunction):P
     next(new ErrorHandler(error.message, 500));
   }
 };
+
