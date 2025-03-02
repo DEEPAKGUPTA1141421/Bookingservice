@@ -207,11 +207,13 @@ export const UpdateAvailabilityService = async (
           : (obj.status = "updated");
         existingAvailability.is_active = true
       } else {
+        console.log("providerId", providerId);
+        console.log("serviceId", serviceId);
         const isRemove: any = await removeServiceProviderFromRedis(
           providerId,
           serviceId
         );
-        isRemove == true
+        isRemove == false
           ? (obj.status = "failed_to remove_from_redis")
           : (obj.status = "updated");
         existingAvailability.is_active = false
