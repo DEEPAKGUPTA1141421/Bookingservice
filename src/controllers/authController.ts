@@ -164,19 +164,20 @@ export const editUser = async (
     }
     if (email) updates.email = email.trim();
     if (phone) updates.phone = phone.trim();
-    if (add_address) updates.add_address = add_address.trim();
+    if (add_address!=undefined && add_address!= null) updates.add_address = add_address.trim();
     if (role) updates.role = role;
     if (password) updates.password = await bcrypt.hash(password, 10);
     if (profilePicture?.location) updates.image = profilePicture.location;
 
     if (!Object.keys(updates).length)
       return next(new ErrorHandler("No updates provided", 400));
-
+    console.log("hitting update")
     const user = await User.findByIdAndUpdate(id, updates, { new: true });
     if (!user) return next(new ErrorHandler("User not found", 404));
     console.log("getting response till here");
     sendResponse(res, 200, "User updated successfully", user);
-  } catch (error) {
+  } catch (error:any) {
+    console.log(error.message)
     next(new ErrorHandler("Internal server error", 500));
   }
 };
