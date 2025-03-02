@@ -15,7 +15,7 @@ import BookingRoutes from "./routes/bookingRoutes";
 import { connectDb } from "./config/database";
 import slotRoutes from "./routes/slotRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
-import PayemntRoutes from "./routes/paymentRoute"
+import PayemntRoutes from "./routes/paymentRoute";
 import { sendRegistrationEmail } from "./config/mailer";
 import { createRedisClient } from "./config/redisCache";
 // Kafka producer setup
@@ -45,7 +45,7 @@ const port = 4000;
 connectDb();
 
 // Test endpoint
-app.get("/test", isAuthenticated, async (req, res, next): Promise<void> => {
+app.get("/test", async (req, res, next): Promise<void> => {
   try {
     const redis = createRedisClient();
     const pattern = "service_providers:*";
@@ -72,13 +72,11 @@ app.get("/test", isAuthenticated, async (req, res, next): Promise<void> => {
     }
 
     res.status(200).json({ success: true, result });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("❌ Error fetching all providers:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -127,24 +125,22 @@ wss.on("connection", (ws, req) => {
   ws.on("message", (message: string) => {
     const { type } = JSON.parse(message);
     if (type == "connection") {
-       try {
-         const { providerId } = JSON.parse(message);
+      try {
+        const { providerId } = JSON.parse(message);
 
-         // Store provider's WebSocket connection
-         if (providerId) {
-           connectedProviders.set(providerId, ws);
-           console.log(`✅ Provider ${providerId} connected`);
-         }
-         else {
-           console.log("else"+JSON.parse(message));
-         }
-       } catch (error) {
-         console.error("Error processing WebSocket message:", error);
-       } 
-    }
-    else {
+        // Store provider's WebSocket connection
+        if (providerId) {
+          connectedProviders.set(providerId, ws);
+          console.log(`✅ Provider ${providerId} connected`);
+        } else {
+          console.log("else" + JSON.parse(message));
+        }
+      } catch (error) {
+        console.error("Error processing WebSocket message:", error);
+      }
+    } else {
       const { latitude, longitude } = JSON.parse(message);
-       console.log("else" + latitude,longitude);
+      console.log("else" + latitude, longitude);
     }
   });
 
@@ -158,5 +154,3 @@ wss.on("connection", (ws, req) => {
     });
   });
 });
-
-
