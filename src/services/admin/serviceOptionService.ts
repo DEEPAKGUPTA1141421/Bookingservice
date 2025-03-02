@@ -2,6 +2,8 @@
 import { NextFunction } from "express";
 import { ServiceOption } from "../../models/ActualServiceSchema";
 import ErrorHandler from "../../config/GlobalerrorHandler";
+import { convertStringToObjectId } from "../../utils/helper";
+import { CodeStarNotifications } from "aws-sdk";
 
 // Create Service Option
 export const createServiceOption = async (
@@ -39,9 +41,8 @@ export const createServiceOption = async (
 // Read Service Option by ID
 export const getServiceOptionById = async (id: string, next: NextFunction) => {
   try {
-    const serviceOption = await ServiceOption.findById(id)
-      .populate("actualService")
-      .populate("service_provider");
+    console.log("in service getServiceOptionById", id);
+    const serviceOption = await ServiceOption.find({ actualService:convertStringToObjectId(id)});
     if (!serviceOption) return next(new ErrorHandler("Service Option not found", 404));
     return serviceOption;
   } catch (error: any) {
