@@ -36,7 +36,9 @@ export const createServiceOptionController = async (req: Request, res: Response,
 // Read Service Option
 export const getServiceOptionController = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log("hello get hit",req.params);
     const validation = getServiceOptionSchema.safeParse(req.params);
+    console.log("validation",validation);
     if (!validation.success) return next(new ErrorHandler(validation.error.errors[0].message, 400));
 
     const { id } = validation.data;
