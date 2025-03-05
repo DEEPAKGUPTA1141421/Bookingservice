@@ -1,4 +1,3 @@
-import { number } from "zod";
 import { IBaseSchema } from "../utils/GlobalTypescript";
 import { Schema, model, Types } from "mongoose";
 
@@ -10,10 +9,7 @@ interface IBookedSlot extends IBaseSchema {
   start_time: Date; // Start time of booking
   end_time: Date; // End time of booking
   slotTiming: number;
-  status:
-    | "initiated"
-    | "confirmed"
-    | "cancelled"
+  serviceoption:Types.ObjectId
 }
 
 // ✅ Define Mongoose Schema for BookedSlot
@@ -26,20 +22,20 @@ const BookedSlotSchema = new Schema<IBookedSlot>(
         required: true,
       },
     ],
-    service: { type: Schema.Types.ObjectId, ref: "Service", required: true },
+    service: {
+      type: Schema.Types.ObjectId,
+      ref: "ActualService",
+      required: true,
+    },
+    serviceoption: {
+      type: Schema.Types.ObjectId,
+      ref: "ActualService",
+      required: true,
+    },
     date: { type: Date, required: true },
     start_time: { type: Date, required: true },
     end_time: { type: Date, required: true },
     slotTiming: { type: Number, required: true },
-    status: {
-      type: String,
-      enum: Object.values({
-        initiated: "initiated",
-        confirmed: "confirmed",
-        cancelled: "cancelled",
-      }),
-      default: "initiated",
-    },
   },
   { timestamps: true }
 );
