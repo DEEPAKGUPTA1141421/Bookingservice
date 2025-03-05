@@ -25,7 +25,7 @@ export interface IServiceProvider extends IBaseSchema {
 }
 
 // Define Mongoose Schema for ServiceProvider
-const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
+export const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
   {
     name: { type: String, required: true },
     email: { type: String, unique: true },
@@ -51,9 +51,7 @@ const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
 );
 
 // Indexing for faster querying
-ServiceProviderSchema.index({ email: 1 });
-ServiceProviderSchema.index({ phone: 1 });
-
+ServiceProviderSchema.index({ "address.location": "2dsphere" });
 // Define the Model
 const ServiceProvider = mongoose.model<IServiceProvider>("ServiceProvider", ServiceProviderSchema);
 
