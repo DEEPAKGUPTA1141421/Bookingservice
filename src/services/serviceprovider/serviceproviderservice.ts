@@ -1,11 +1,12 @@
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
-import ServiceProvider from "../../models/ServiceProviderSchema ";
+import ServiceProvider, { IServiceProvider } from "../../models/ServiceProviderSchema ";
 import crypto from "crypto";
 import Redis from "ioredis";
 import { create_status_return, OtpVerficationType } from "../../utils/GlobalTypescript";
 import {
   addServiceProviderToRedis,
+  convertStringToObjectId,
   formatToDDMMYY,
   generateOtp,
   getDistanceInMeters,
@@ -14,6 +15,9 @@ import {
 import Otp from "../../models/OtpSchema";
 import { Booking } from "../../models/BookingSchema";
 import { createRedisClient } from "../../config/redisCache";
+import mongoose, { ObjectId } from "mongoose";
+import { ServiceOption } from "../../models/ActualServiceSchema";
+import { checkConsecutive, getIndex } from "../slotService";
 // Create a new service provider
 export const createServiceProviderService = async (data: any, next: any) => {
   try {
@@ -126,9 +130,10 @@ export const createAvailabilityservice = async (data: any): Promise<create_statu
       end_time,
       latitude,
       longitude,
+      date
     } = data;
     console.log("in Service", data);
-    const dateOnly = new Date();
+    const dateOnly = new Date(date);
     dateOnly.setUTCHours(0, 0, 0, 0);
     // Check if availability exists
     console.log("providerId", providerId);
@@ -269,4 +274,101 @@ export const reachedAtUserLocationService = async (
   } catch (error: any) {
     throw new ErrorHandler(error.message, 501);
   }
+};
+
+
+export const getNearbyServiceProviders = async (
+  latitude: number,
+  longitude: number,
+  radius: number,
+  serviceId: string,
+  date: string
+) => {
+  const dateOnly = new Date(date);
+  dateOnly.setUTCHours(0, 0, 0, 0); // Normalize date to midnight UTC
+  console.log(latitude, longitude, radius, serviceId, date);
+  const serviceProviders = await ServiceProvider.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [latitude, longitude], // Correct order: [longitude, latitude]
+        },
+        distanceField: "distance",
+        query: { actualService: convertStringToObjectId(serviceId) },
+        maxDistance: radius, // Radius in meters
+        includeLocs: "dist.location",
+        spherical: true,
+      },
+    },
+  ]);
+  console.log(serviceProviders);
+  const providerIds = serviceProviders.map((provider) => provider._id);
+  console.log(providerIds);
+  const providerAvailabilities = await ServiceProviderAvailability.find(
+    {
+      provider: { $in: providerIds },
+      date: dateOnly,
+      is_active: true,
+    },
+    { provider: 1, available_bit: 1 }
+  ).lean();
+  console.log(providerAvailabilities);
+  let returnProviders: {
+    providerId: string;
+    availableDurations: Object[];
+  }[] = [];
+  const now = new Date(date);
+  const currentTime = formatTime(now);
+  const timeIndex = getIndex(currentTime);
+  const serviceOption = await ServiceOption.find({
+    actualService: convertStringToObjectId(serviceId),
+  });
+
+  if (!providerAvailabilities.length) {
+  } else {
+    for (let i = 0; i < providerAvailabilities.length; i++) {
+      let availableDurations: Object[] = [];
+
+      // Check each duration in the duration array
+      for (let j = 0; j < serviceOption.length; j++) {
+        let d = serviceOption[j].duration;
+        d /= 15;
+        if (
+          checkConsecutive(
+            providerAvailabilities[i].available_bit,
+            timeIndex,
+            d
+          )
+        ) {
+          availableDurations.push({
+            duration: d * 15,
+            serviceoption: serviceOption[j],
+          }); // Convert slots to minutes
+        }
+      }
+
+      if (availableDurations.length > 0) {
+        returnProviders.push({
+          providerId: providerAvailabilities[i].provider.toString(),
+          availableDurations,
+        });
+      }
+    }
+  }
+  
+  return returnProviders;
+};
+
+export const formatTime = (date: Date): string => {
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  console.log(hours, minutes);
+  if (minutes <= 30) {
+    minutes = 0;
+  } else {
+    minutes = 30;
+  }
+
+  return `${hours}:${minutes === 0 ? "00" : "30"}`;
 };
