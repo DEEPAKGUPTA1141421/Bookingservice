@@ -106,14 +106,20 @@ export async function addServiceProviderToRedis(
   latitude: number,
   longitude: number
 ): Promise<boolean> {
-  const key = `service_providers:${serviceId}`;
-  console.log("adding it to redis now with key", key);
+  //const key = `service_providers:${serviceId}`;
+  const serviceKey = `geocord:${serviceId}`;
+  console.log("adding it to redis now with key", serviceKey);
   console.log(typeof latitude, typeof longitude);
-  console.log(key, longitude, latitude, providerId);
-  const result = await createRedisClient().zrem(key, providerId.toString());
+  console.log(serviceKey, longitude, latitude, providerId);
+  const resultremove = await createRedisClient().zrem(serviceKey, providerId);
+  console.log("removed", resultremove);
+  const result = await createRedisClient().zrem(
+    serviceKey,
+    providerId.toString()
+  );
   console.log("removed", result);
   const add = await createRedisClient().geoadd(
-    key,
+    serviceKey,
     Number(longitude),
     Number(latitude),
     String(providerId)
@@ -153,21 +159,17 @@ export async function getAvailableProvidersFromRedis(
   longitude: number,
   radius: number
 ): Promise<any> {
-  const key = `service_providers:${serviceId}`;
-  console.log("key check", key);
-  const providers = await createRedisClient().geosearch(
-    key,
-    "FROMLONLAT",
-    longitude,
-    latitude,
-    "BYRADIUS",
-    radius,
-    "m", // meters
-    "WITHCOORD", // Get coordinates
-    "WITHDIST" // Get distance
+  const serviceKey = `geocord:${serviceId}`;
+  const nearbyProviders = await createRedisClient().georadius(
+    serviceKey,
+    Number(longitude),
+    Number(latitude),
+    5, // 5 km radius
+    "km",
+    "WITHCOORD"
   );
-  console.log("list of available providers", providers);
-  return providers || [];
+  console.log("list of available providers", nearbyProviders);
+  return nearbyProviders || [];
 }
 
 export const objectIdSchema = z
@@ -258,3 +260,19 @@ export const convertToHHMM = (isoString: string): string => {
   const minutes = date.getUTCMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}`;
 };
+
+export const updatelivelocation = async (
+  serviceId: string,
+  providerId: string,
+  latitude: number,
+  longitude: number
+) => {
+  const response = await addServiceProviderToRedis(
+    serviceId,
+    providerId,
+    latitude,
+    longitude
+  );
+};
+
+
