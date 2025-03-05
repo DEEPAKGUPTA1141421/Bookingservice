@@ -28,8 +28,8 @@ export const createBooking = async (
     if (!validation.success) {
       throw new ErrorHandler(validation.error.message, 400);
     }
-
-    const booking = await createBookingService(userId, validation.data.address);
+    const {date,duration,serviceoption,start_time,providersList} = validation.data;
+    const booking = await createBookingService({ userId, date, duration, serviceoption, start_time,providersList });
     res.status(201).json({ message: "Booking created successfully", booking });
   } catch (error) {
     const err =
