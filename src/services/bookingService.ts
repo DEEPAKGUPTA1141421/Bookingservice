@@ -9,7 +9,16 @@ import { Type } from "aws-sdk/clients/cloudformation";
 import { convertStringToObjectId, convertToHHMM } from "../utils/helper";
 import { ServiceProviderAvailability } from "../models/ServiceProviderAvailabilitySchema";
 import { getIndex } from "./slotService";
+import { Types } from "mongoose";
 
+interface BookingData {
+  userId: Types.ObjectId;
+  date: string; // YYYY-MM-DD format
+  duration: number;
+  serviceoption: string;
+  start_time: string; // HH:MM format
+  providersList: string[]; // Array of provider IDs
+}
 
 // Define allowed booking statuses
 type BookingStatus =
@@ -21,25 +30,19 @@ type BookingStatus =
   | "cancelled"
   | "delivered";
 
-export const createBookingService = async (userId: string, address: string) => {
-  const cart = await Cart.findOne({ user: userId }).populate(
-    "items.service items.service_option"
-  );
-
-  if (!cart || cart.items.length === 0) {
-    throw new ErrorHandler("Cart is empty", 400);
+export const createBookingService = ({
+  userId,
+  date,
+  duration,
+  serviceoption,
+  start_time,
+  providersList,
+}: BookingData) => {
+  try {
+    const bookslot = BookedSlot.create({});
+  } catch (error) {
+    throw new ErrorHandler("Internal Server Error", 501);
   }
-
-  const booking = new Booking({
-    user: userId,
-    cart: cart._id,
-    status: "initiated",
-    bookingDate: new Date(),
-    address,
-  });
-
-  await booking.save();
-  return booking;
 };
 
 export const updateBookingService = async (
@@ -140,7 +143,6 @@ export const acceptBookingService = async (
 
     // ✅ Remove other providers & keep only the accepting provider
     bookedSlot.providers = [convertStringToObjectId(providerId)];
-    bookedSlot.status = "confirmed";
     await bookedSlot.save({ session });
 
     // ✅ Update booking status to confirmed
