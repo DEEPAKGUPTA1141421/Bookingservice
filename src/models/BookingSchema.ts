@@ -4,7 +4,6 @@ import mongoose, { Schema, model, Types } from "mongoose";
 import { connectedProviders, wss } from "..";
 export interface IBooking extends IBaseSchema {
   user: Types.ObjectId;
-  cart: Types.ObjectId;
   bookingSlot_id: Types.ObjectId;
   status:
     | "initiated"
@@ -15,7 +14,6 @@ export interface IBooking extends IBaseSchema {
     | "cancelled"
     | "verified"
     | "delivered"; // Booking status
-  bookingDate: Date;
   scheduledTime?: Date;
   completedTime?: Date;
   provider: Types.ObjectId;
@@ -36,7 +34,6 @@ export interface IBooking extends IBaseSchema {
 const BookingSchema = new Schema<IBooking>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    cart: { type: Schema.Types.ObjectId, ref: "Cart", required: true },
     bookingSlot_id: {
       type: Schema.Types.ObjectId,
       ref: "BookedSlot",
@@ -47,7 +44,7 @@ const BookingSchema = new Schema<IBooking>(
       enum: Object.values({
         initiated: "initiated",
         pending: "pending",
-        verified:"verified",
+        verified: "verified",
         confirmed: "confirmed",
         inProgress: "in-progress",
         completed: "completed",
@@ -56,19 +53,33 @@ const BookingSchema = new Schema<IBooking>(
       }),
       default: "initiated",
     },
-    bookingDate: { type: Date, required: true },
     scheduledTime: { type: Boolean },
     completedTime: { type: Date },
     reached: { type: Boolean, default: false },
     address: {
-      street: { type: String },
-      city: { type: String },
-      state: { type: String },
-      country: { type: String },
+      street: String,
+      city: String,
+      state: String,
+      country: String,
       location: {
-        type: { type: String, enum: ["Point"], default: "Point" },
-        coordinates: { type: [Number], required: true },
-      },
+        type: {
+          type: String,
+          enum: ["Point"],
+          required: function () {
+            return this.address?.location?.coordinates?.length === 2;
+          }, // ✅ Only required if coordinates exist
+        },
+        coordinates: {
+          type: [Number],
+          required: false, // ✅ Allow missing initially
+          validate: {
+            validator: function (v: number[]) {
+              return !v || (Array.isArray(v) && v.length === 2);
+            },
+            message: "Coordinates must be an array of [longitude, latitude]",
+          },
+        },
+      }
     },
   },
   { timestamps: true }
