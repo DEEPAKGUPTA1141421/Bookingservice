@@ -18,6 +18,7 @@ import reviewRoutes from "./routes/reviewRoutes";
 import PayemntRoutes from "./routes/paymentRoute";
 import { sendRegistrationEmail } from "./config/mailer";
 import { createRedisClient } from "./config/redisCache";
+import ServiceProvider, { ServiceProviderSchema } from "./models/ServiceProviderSchema ";
 // Kafka producer setup
 const kafka = new Kafka({
   clientId: "my-app",
@@ -70,7 +71,6 @@ app.get("/test", async (req, res, next): Promise<void> => {
         );
       }
     }
-
     res.status(200).json({ success: true, result });
   } catch (error: any) {
     console.error("❌ Error fetching all providers:", error);
@@ -79,7 +79,7 @@ app.get("/test", async (req, res, next): Promise<void> => {
 });
 
 // Root endpoint
-app.get("/", (req, res) => {
+app.get("/", async(req, res) => {
   res.status(200).json({
     msg: "Server is up and running from my end!",
   });
@@ -119,38 +119,49 @@ export const wss = new WebSocketServer({ server: server });
 // Store connected providers
 export const connectedProviders = new Map<string, WebSocket>();
 
-wss.on("connection", (ws, req) => {
-  console.log("📡 New Provider Connected");
+wss.on("connection", async (ws: any, req) => {
+  console.log("📡 New WebSocket Connection");
 
-  ws.on("message", (message: string) => {
+  ws.on("message", async (message: any) => {
+    // Your logic here
     const { type } = JSON.parse(message);
-    if (type == "connection") {
-      try {
-        const { providerId } = JSON.parse(message);
-
-        // Store provider's WebSocket connection
-        if (providerId) {
-          connectedProviders.set(providerId, ws);
-          console.log(`✅ Provider ${providerId} connected`);
-        } else {
-          console.log("else" + JSON.parse(message));
-        }
-      } catch (error) {
-        console.error("Error processing WebSocket message:", error);
-      }
-    } else {
-      const { latitude, longitude } = JSON.parse(message);
-      console.log("else" + latitude, longitude);
+    if (type == "Booking-Confirmed") {
+      console.log("ws", ws);
+      const { providerId, userId } = JSON.parse(message);
+      const result1 = await createRedisClient().set(
+        `socket:${userId}`,
+        providerId
+      );
+      const result2 = await createRedisClient().set(
+        `socket:${providerId}`,
+        userId
+      );
+      console.log("Set Provider and User In Redis", result1, result2);
     }
-  });
-
-  ws.on("close", () => {
-    // Remove provider on disconnect
-    connectedProviders.forEach((socket, providerId) => {
-      if (socket === ws) {
-        connectedProviders.delete(providerId);
-        console.log(`❌ Provider ${providerId} disconnected`);
+    else if (type == "First-Connection") {
+      console.log("Excahnge The ids");
+      const { id } = JSON.parse(message);
+      connectedProviders.set(id, ws);
+    }
+    else if (type=="Realtime-Update") {
+      const { id,latitude,longitude } = JSON.parse(message);
+      const myWebSocket = connectedProviders.get(id);
+      const otherId = await createRedisClient().get(`socket:${id}`);
+      if (!otherId) {
+        console.log("Connection is unavailable");
+        return;
       }
-    });
+      const otherWebSocket = connectedProviders.get(otherId);
+      if (otherWebSocket && otherWebSocket.readyState === WebSocket.OPEN) {
+        otherWebSocket.send(
+          JSON.stringify({
+            type: "get-Real-Time-Update",
+            id: id,
+            latitude: latitude,
+            longitude: longitude,
+          })
+        );
+      }
+    }
   });
 });
