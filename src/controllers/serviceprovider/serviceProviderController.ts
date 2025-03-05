@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, response } from "express";
-import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService, UpdateAvailabilityService, createAvailabilityservice, reachedAtUserLocationService } from "../../services/serviceprovider/serviceproviderservice";
+import { createServiceProviderService, getAllServiceProvidersService, getServiceProviderByIdService, updateServiceProviderService, deleteServiceProviderService, getLocationFromProviderService, UpdateAvailabilityService, createAvailabilityservice, reachedAtUserLocationService, getNearbyServiceProviders } from "../../services/serviceprovider/serviceproviderservice";
 import { sendResponse } from "../../utils/responseHandler";
 import { CheckZodValidation, convertStringToObjectId, getAvailableProvidersFromRedis } from "../../utils/helper";
 import ErrorHandler from "../../config/GlobalerrorHandler";
@@ -14,6 +14,8 @@ import { Booking } from "../../models/BookingSchema";
 import { checkConsecutive, getIndex } from "../../services/slotService";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import mongoose from "mongoose";
+import { ServiceOption } from "../../models/ActualServiceSchema";
+import ServiceProvider from "../../models/ServiceProviderSchema ";
 // Create a new service provider
 export const createServiceProvider = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
@@ -204,76 +206,92 @@ export const getProvidersWithinRadius = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    let { latitude, longitude, radius, serviceId } = req.body;
+    let { latitude, longitude, radius, serviceId,date } = req.body;
     console.log("new one log",latitude,longitude,radius,serviceId);
     const duration = [2, 3, 4, 5, 6]; // 30, 45, 60, 75, 90 minutes slots
 
-    if (!serviceId || !latitude || !longitude || !radius) {
+    if (!serviceId || !latitude || !longitude || !radius || !date) {
       res.status(404).json({ error: "Missing required parameters" });
       return;
     }
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Normalize today's date to midnight UTC
+    const givenDate = new Date(date);
+    if (givenDate > today) {
+      const response=await getNearbyServiceProviders(latitude, longitude, radius, serviceId, date);
+      console.log("The given date is after today.");
+      console.log(JSON.stringify(response));
+      res.json({ success: true, returnProviders: response });
+      return;
+    }
+  else {
+  const serviceOption = await ServiceOption.find({
+    actualService: convertStringToObjectId(serviceId),
+  });
+  if (!serviceOption) return next(new ErrorHandler("Service Option not found", 404));
 
-    // Fetch available providers from Redis
-    const providers = await getAvailableProvidersFromRedis(
-      serviceId,
-      parseFloat(latitude as string),
-      parseFloat(longitude as string),
-      radius
-    );
-    console.log(providers);
-    serviceId = convertStringToObjectId(serviceId);
-    const now = new Date();
-    const currentTime = formatTime(now);
-    const timeIndex = getIndex(currentTime);
+  // Fetch available providers from Redis
+  const providers = await getAvailableProvidersFromRedis(
+    serviceId,
+    parseFloat(latitude as string),
+    parseFloat(longitude as string),
+    radius
+  );
+  serviceId = convertStringToObjectId(serviceId);
+  const now = new Date();
+  const currentTime = formatTime(now);
+  const timeIndex = getIndex(currentTime);
 
-    // Fetch provider availability from MongoDB
-    const providerAvailabilities = await ServiceProviderAvailability.find(
-      {
-        provider: {
-          $in: providers.map(
-            (provider: any) => new mongoose.Types.ObjectId(provider[0])
-          ),
-        },
-        is_active: true,
+  // Fetch provider availability from MongoDB
+  const providerAvailabilities = await ServiceProviderAvailability.find(
+    {
+      provider: {
+        $in: providers.map(
+          (provider: any) => new mongoose.Types.ObjectId(provider[0])
+        ),
       },
-      { provider: 1, available_bit: 1 } // Select only necessary fields
-    ).lean();
+      is_active: true,
+    },
+    { provider: 1, available_bit: 1 } // Select only necessary fields
+  ).lean();
+  console.log(providerAvailabilities,"check now cjbhjbh")
+  let returnProviders: {
+    providerId: string;
+    availableDurations: Object[];
+  }[] = [];
 
-    let returnProviders: {
-      providerId: string;
-      availableDurations: number[];
-    }[] = [];
+  if (!providerAvailabilities.length) {
+     
+  } else {
+    for (let i = 0; i < providerAvailabilities.length; i++) {
+      let availableDurations: Object[] = [];
 
-    if (!providerAvailabilities.length) {
-      console.log("No providers available for booking");
-    } else {
-      for (let i = 0; i < providerAvailabilities.length; i++) {
-        let availableDurations: number[] = [];
-
-        // Check each duration in the duration array
-        for (let d of duration) {
-          if (
-            checkConsecutive(
-              providerAvailabilities[i].available_bit,
-              timeIndex,
-              d
-            )
-          ) {
-            availableDurations.push(d * 15); // Convert slots to minutes
-          }
-        }
-
-        if (availableDurations.length > 0) {
-          returnProviders.push({
-            providerId: providerAvailabilities[i].provider.toString(),
-            availableDurations,
-          });
+      // Check each duration in the duration array
+      for (let j = 0; j < serviceOption.length; j++) {
+        let d = serviceOption[j].duration;
+        console.log("duration", d);
+        d /= 15;
+        if (checkConsecutive(providerAvailabilities[i].available_bit, timeIndex, d)) {
+          console.log("condition tr4ue");
+          availableDurations.push({
+            duration: d * 15,
+            serviceoption: serviceOption[j],
+          }); // Convert slots to minutes
         }
       }
-    }
 
-    res.json({ success: true, returnProviders });
-    return;
+      if (availableDurations.length > 0) {
+        returnProviders.push({
+          providerId: providerAvailabilities[i].provider.toString(),
+          availableDurations,
+        });
+      }
+    }
+  }
+
+  res.json({ success: true, returnProviders: returnProviders });
+  return;
+}
   } catch (error) {
     console.error("Error fetching providers:", error);
     res.status(500).json({ error: "Internal server error" });
