@@ -192,6 +192,7 @@ export const checkConsecutive = (
   timeIndex: number,
   numberOfSlots: number
 ): boolean => {
+  console.log("data checking",available_bit,timeIndex,numberOfSlots);
   if (timeIndex < 0 || timeIndex + numberOfSlots > available_bit.length)
     return false;
 
