@@ -15,7 +15,6 @@ import { checkConsecutive, getIndex } from "../../services/slotService";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import mongoose from "mongoose";
 import { ServiceOption } from "../../models/ActualServiceSchema";
-import ServiceProvider from "../../models/ServiceProviderSchema ";
 // Create a new service provider
 export const createServiceProvider = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
   try {
@@ -269,10 +268,8 @@ export const getProvidersWithinRadius = async (
       // Check each duration in the duration array
       for (let j = 0; j < serviceOption.length; j++) {
         let d = serviceOption[j].duration;
-        console.log("duration", d);
         d /= 15;
-        if (checkConsecutive(providerAvailabilities[i].available_bit, timeIndex, d)) {
-          console.log("condition tr4ue");
+        if (checkConsecutive(providerAvailabilities[i].available_bit, timeIndex, d)==false) {
           availableDurations.push({
             duration: d * 15,
             serviceoption: serviceOption[j],
