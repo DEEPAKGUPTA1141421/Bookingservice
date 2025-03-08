@@ -59,7 +59,7 @@ export const editUserSchema = z
         {
           message: "Latitude must be a number between -90 and 90 or null",
         }
-      ),
+      ).optional(),
 
     longitude: z
       .union([z.string(), z.number(), z.null()])
@@ -69,7 +69,7 @@ export const editUserSchema = z
         {
           message: "Longitude must be a number between -180 and 180 or null",
         }
-      ),
+      ).optional(),
 
     role: z.enum(["user", "admin", "provider"]).optional(),
     add_address: z.string().optional(),
