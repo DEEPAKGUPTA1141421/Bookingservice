@@ -5,7 +5,7 @@ import { authorizeRoles, isAuthenticated } from '../middleware/authorised';
 
 const router = express.Router();
 
-router.get("/getCordinate",isAuthenticated,authorizeRoles("user"),getAddressCordinate);
+router.get("/getCordinate",getAddressCordinate);
 router.get("/getDistanceTime",isAuthenticated,authorizeRoles("user"),getDistanceTime)
 router.post("/autocomplete", getSeggestion);
 router.get("/states/:countryCode", getStatesByCountry);
