@@ -40,10 +40,11 @@ export const isAuthenticated = async (
       (await User.findById(decodedData.userId)) ||
       (await ServiceProvider.findById(decodedData.userId)); // Find user or service provider
     if (!req.user) {
+      console.log("user not found");
       next(new ErrorHandler("User not found", 404));
       return;
     }
-
+    console.log("control transfer");
     next(); // Proceed to next middleware
   } catch (error) {
     console.log("Auth Error:", error);
