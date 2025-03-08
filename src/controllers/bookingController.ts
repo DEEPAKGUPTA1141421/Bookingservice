@@ -5,6 +5,7 @@ import {
   getBookingsService,
   deleteBookingService,
   acceptBookingService,
+  UpdateBookingParams,
 } from "../services/bookingService";
 import {
   acceptBookingSchema,
@@ -16,21 +17,74 @@ import mongoose from "mongoose";
 import { Booking } from "../models/BookingSchema";
 import { sendResponse } from "../utils/responseHandler";
 import { CheckZodValidation } from "../utils/helper";
+import { IRequest } from "../middleware/authorised";
+function transformBookingRequest(body: any) {
+  const { modeOfPayment, pointsUsed, bookingId, address, status, finalPrice } =
+    body;
+
+  // Extract relevant address parts (You can improve this with a geocoding API if needed)
+  const addressParts = address.current_address.split(", ");
+
+  const transformedAddress = {
+    street: addressParts[0] || "",
+    city: addressParts[addressParts.length - 3] || "",
+    state: addressParts[addressParts.length - 2] || "",
+    country: addressParts[addressParts.length - 1] || "",
+    location: {
+      type: "Point",
+      coordinates: address.location?.coordinates || [],
+    },
+  };
+
+  return {
+    modeOfPayment,
+    pointsUsed,
+    bookingId,
+    address: transformedAddress,
+    status,
+    finalPrice,
+  };
+}
 
 export const createBooking = async (
-  req: Request,
-  res: Response
+  req: IRequest,
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = req.body._id;
+    console.log("reached here");
+    const userId = req.user?._id;
+    console.log("body check up", req.body);
     const validation = createBookingSchema.safeParse(req.body);
-
     if (!validation.success) {
-      throw new ErrorHandler(validation.error.message, 400);
+      console.log("reached here1", validation.error.message);
+      sendResponse(res, 404, "Validation Failed", {});
+      return;
     }
-    const {date,duration,serviceoption,start_time,providersList} = validation.data;
-    const booking = await createBookingService({ userId, date, duration, serviceoption, start_time,providersList });
-    res.status(201).json({ message: "Booking created successfully", booking });
+    let {
+      date,
+      duration,
+      serviceoption,
+      start_time,
+      providersList,
+      actualService,
+      isScheduled,
+    } = req.body;
+    const booking = await createBookingService({
+      userId,
+      date,
+      duration,
+      serviceoption,
+      start_time,
+      providersList,
+      actualService,
+    });
+    if (booking.success) {
+      sendResponse(res, 201, "Booking Initiated SuccesFully", booking);
+      return;
+    } else {
+      next(new ErrorHandler("Failed To Create Order", 501));
+    }
   } catch (error) {
     const err =
       error instanceof ErrorHandler
@@ -40,50 +94,81 @@ export const createBooking = async (
   }
 };
 
-export const updateBooking = async (
+export const getBookingDetails = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
-    const validation = updateBookingSchema.safeParse(req.body);
 
-    if (!validation.success) {
-      throw new ErrorHandler(validation.error.message, 400);
+    if (!bookingId) {
+      res.status(400).json({ message: "Booking ID is required" });
+      return;
     }
 
-    const status =
-      validation.data.status === "canceled"
-        ? "cancelled"
-        : validation.data.status;
+    const booking = await Booking.findById(bookingId)
+      .populate({
+        path: "bookingSlot_id",
+        populate: {
+          path: "providers",
+        },
+      })
+      .lean(); // Using lean() for performance boost
 
-    const booking = await updateBookingService(
-      bookingId,
-      status,
-      validation.data.scheduledTime
-        ? new Date(validation.data.scheduledTime).toISOString()
-        : undefined,
-      validation.data.completedTime
-        ? new Date(validation.data.completedTime).toISOString()
-        : undefined
-    );
-
-    res.status(200).json({ message: "Booking updated successfully", booking });
+    if (!booking) {
+      res.status(404).json({ message: "Booking not found" });
+      return;
+    }
+    res.status(200).json({ success: true, data: booking });
+    return;
   } catch (error) {
-    const err =
-      error instanceof ErrorHandler
-        ? error
-        : new ErrorHandler("Error updating booking", 500);
-    res.status(err.statusCode).json({ message: err.message });
+    console.error("Error fetching booking details:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const getBookings = async (
+export const updateBooking = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.body._id;
+    console.log("Body checkup:", req.body);
+
+    // Validate request body
+    const validation = updateBookingSchema.safeParse(req.body);
+    if (!validation.success) {
+      console.log("validation failed");
+      res.status(400).json({ message: validation.error.errors });
+      return;
+    }
+
+    // Transform request for DB insertion
+    const requestData:any = transformBookingRequest(
+      validation.data
+    );
+
+    // Update booking in the database
+    const updatedBooking = await updateBookingService(requestData);
+
+    res
+      .status(200)
+      .json({
+        message: "Booking updated successfully",
+        booking: updatedBooking,
+      });
+  } catch (error: any) {
+    console.error("Error updating booking:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getBookings = async (
+  req: IRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId: any = req.user?._id;
     const bookings = await getBookingsService(userId);
 
     res.status(200).json({ bookings });
@@ -114,9 +199,17 @@ export const deleteBooking = async (
   }
 };
 
-export const acceptBooking = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const acceptBooking = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const validatedData = CheckZodValidation(req.body,acceptBookingSchema,next);
+    const validatedData = CheckZodValidation(
+      req.body,
+      acceptBookingSchema,
+      next
+    );
     if (!validatedData.success) {
       next(new ErrorHandler("Validation failed", 500));
       return;
@@ -128,4 +221,5 @@ export const acceptBooking = async (req: Request, res: Response, next: NextFunct
     next(new ErrorHandler(error.message, 501));
   }
 };
+
 
