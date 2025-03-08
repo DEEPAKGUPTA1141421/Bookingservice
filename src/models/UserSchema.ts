@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { IBaseSchema } from "../utils/GlobalTypescript";
-import { getAddressFromLatLng } from "../services/locationservice";
+import { getAddressFromCordinate, getAddressFromLatLng } from "../services/locationservice";
 
 const { Schema, model } = mongoose;
 interface IAddress {
@@ -14,6 +14,11 @@ interface IAddress {
   };
 }
 
+interface location_return{
+  latitude?: number | any,
+  longitude?:number |any
+}
+
 export interface IUser extends IBaseSchema {
   name?: string;
   email?: string;
@@ -24,7 +29,8 @@ export interface IUser extends IBaseSchema {
   address?: IAddress;
   current_address: string;
   listofAddress: string[];
-  distance_current_address:string
+  distance_current_address: string
+  points:string
 }
 const UserSchema = new Schema<IUser>(
   {
@@ -41,6 +47,7 @@ const UserSchema = new Schema<IUser>(
       enum: ["verified", "unverified"],
       default: "unverified",
     },
+    points:{type:String, default:"0"},
     image: { type: String },
     address: {
       street: String,
@@ -75,56 +82,107 @@ const UserSchema = new Schema<IUser>(
     strict: false, // Allows additional fields not defined in schema
   }
 );
-
 // ✅ Geospatial index applied only if "coordinates" exist
 UserSchema.index({ "address.location": "2dsphere" }, { sparse: true });
 
 UserSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate() as any;
 
+  // ✅ Handling `address.location.coordinates`
   if (update?.["address.location"]?.coordinates) {
-    console.log("yes Update");
+    console.log("✅ Updating location with coordinates");
+
     const [longitude, latitude] = update["address.location"].coordinates;
-    console.log("corr check", longitude, latitude);
+    console.log("✔ Coordinates received:", longitude, latitude);
+
     try {
       const fullAddress = await getAddressFromLatLng(latitude, longitude);
+      const existingDoc = await this.model
+        .findOne(this.getQuery())
+        .select("listofAddress")
+        .lean();
 
-      if (fullAddress) {
-        console.log("check full",fullAddress);
-        update.current_address = fullAddress; // ✅ Now updates at root level
+      let addressArray: string[] = Array.isArray(existingDoc?.listofAddress)
+        ? existingDoc.listofAddress
+        : [];
 
-        if (!update.listofAddress) {
-          update.listofAddress = [];
-        }
-        update.listofAddress.unshift(fullAddress); // ✅ Now modifies root-level `listofAddress`
+      if (!addressArray.includes(fullAddress)) {
+        console.log("✔ Adding new address:", fullAddress);
+        addressArray.unshift(fullAddress); // Push to the beginning
       }
+
+      // ✅ Ensure list does not exceed 5 entries
+      if (addressArray.length > 5) {
+        addressArray = addressArray.slice(0, 5);
+      }
+
+      // ✅ Assign updated array and current address
+      update.listofAddress = addressArray;
+      update.current_address = fullAddress; // ✅ Updates root-level field
     } catch (error) {
-      console.error("Google API Error:", error);
+      console.error("❌ Google API Error:", error);
     }
   }
- if (update.add_address) {
-   console.log("✅ Adding new address:", update.add_address);
 
-   // Ensure listofAddress is an array
-   const newAddress = update.add_address.trim();
+  // ✅ Handling `add_address` field
+  if (update.add_address) {
+    console.log("✅ Processing add_address:", update.add_address);
 
-   // ✅ Check if the new address is already in the list
-   if (!update.listofAddress.includes(newAddress)) {
-     console.log("adding one more");
-     update.listofAddress.push(newAddress);
-   }
+    try {
+      console.log("update add ress text",update.add_address);
+      let response: any = await getAddressFromCordinate(update.add_address);
+      const { lat, lon } = response;
 
-   // ✅ Ensure the array does not exceed a limit (e.g., store only the last 5 addresses)
-   if (update.listofAddress.length > 5) {
-     update.listofAddress.pop(); // Remove the oldest entry
-   }
+      console.log("sedinhgjhbdksbhjh", lat, lon,response);
 
-   // ❌ Remove `add_address` so it is NOT stored in the database
-   delete update.add_address;
- }
+      if (lon !== undefined && lat !== undefined) {
+        update.address = update.address || {}; // Ensure address object exists
+        update.address.location = {
+          type: "Point",
+          coordinates: [lat, lon], // ✅ MongoDB requires [longitude, latitude]
+        };
+      }
+
+      const existingDoc = await this.model
+        .findOne(this.getQuery())
+        .select("listofAddress")
+        .lean();
+
+      let addressArray: string[] = Array.isArray(existingDoc?.listofAddress)
+        ? existingDoc.listofAddress
+        : [];
+
+      const newAddress = update.add_address.trim();
+
+      // ✅ Avoid duplicates
+      if (!addressArray.includes(newAddress)) {
+        console.log("✔ Adding new address:", newAddress);
+        addressArray.unshift(newAddress);
+      }
+
+      // ✅ Ensure list does not exceed 5 entries
+      if (addressArray.length > 5) {
+        addressArray = addressArray.slice(0, 5);
+      }
+
+      // ✅ Assign updated array and set current_address
+      update.listofAddress = addressArray;
+      update.current_address = newAddress;
+
+      // ❌ Remove `add_address` so it's NOT stored in the database
+      delete update.add_address;
+    } catch (error) {
+      console.error("❌ Address Lookup Error:", error);
+    }
+  }
 
   next();
 });
+
+
+
+
+
 
 const User = model<IUser>("User", UserSchema);
 export default User;
