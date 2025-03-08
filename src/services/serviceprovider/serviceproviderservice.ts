@@ -1,6 +1,5 @@
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
-import ServiceProvider, { IServiceProvider } from "../../models/ServiceProviderSchema ";
 import crypto from "crypto";
 import Redis from "ioredis";
 import { create_status_return, OtpVerficationType } from "../../utils/GlobalTypescript";
@@ -18,6 +17,7 @@ import { createRedisClient } from "../../config/redisCache";
 import mongoose, { ObjectId } from "mongoose";
 import { ServiceOption } from "../../models/ActualServiceSchema";
 import { checkConsecutive, getIndex } from "../slotService";
+import ServiceProvider from "../../models/ServiceProviderSchema ";
 // Create a new service provider
 export const createServiceProviderService = async (data: any, next: any) => {
   try {
@@ -137,6 +137,7 @@ export const createAvailabilityservice = async (data: any): Promise<create_statu
     dateOnly.setUTCHours(0, 0, 0, 0);
     // Check if availability exists
     console.log("providerId", providerId);
+    
     console.log(typeof(providerId));
     const existingAvailability = await ServiceProviderAvailability.findOne({
       provider: providerId,
