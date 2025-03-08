@@ -4,12 +4,12 @@ import { Schema, model, Types } from "mongoose";
 // ✅ Define Interface for BookedSlot
 interface IBookedSlot extends IBaseSchema {
   providers: Array<Types.ObjectId>; // FK to ServiceProvider
-  service: Types.ObjectId; // FK to Service
+  Acutalservice: Types.ObjectId; // FK to Service
   date: Date; // Date of booking
   start_time: Date; // Start time of booking
   end_time: Date; // End time of booking
   slotTiming: number;
-  serviceoption:Types.ObjectId
+  serviceoption: Types.ObjectId;
 }
 
 // ✅ Define Mongoose Schema for BookedSlot
@@ -22,19 +22,18 @@ const BookedSlotSchema = new Schema<IBookedSlot>(
         required: true,
       },
     ],
-    service: {
+    Acutalservice: {
       type: Schema.Types.ObjectId,
       ref: "ActualService",
       required: true,
     },
     serviceoption: {
       type: Schema.Types.ObjectId,
-      ref: "ActualService",
+      ref: "ServiceOption",
       required: true,
     },
     date: { type: Date, required: true },
     start_time: { type: Date, required: true },
-    end_time: { type: Date, required: true },
     slotTiming: { type: Number, required: true },
   },
   { timestamps: true }
