@@ -9,6 +9,7 @@ import AdminRoutes from "./routes/adminRoute";
 import cartRoutes from "./routes/cartRoutes";
 import ServiceRoutes from "./routes/serviceproviderRoute";
 import findProvider from "./routes/findProvider";
+import promocode from "./routes/promoCodeRoutes"
 import { errorMiddleware } from "./config/CustomErrorhandler";
 import { isAuthenticated } from "./middleware/authorised";
 import BookingRoutes from "./routes/bookingRoutes";
@@ -19,6 +20,7 @@ import PayemntRoutes from "./routes/paymentRoute";
 import { sendRegistrationEmail } from "./config/mailer";
 import { createRedisClient } from "./config/redisCache";
 import ServiceProvider, { ServiceProviderSchema } from "./models/ServiceProviderSchema ";
+import { getAddressFromLatLng } from "./services/locationservice";
 // Kafka producer setup
 const kafka = new Kafka({
   clientId: "my-app",
@@ -77,7 +79,16 @@ app.get("/test", async (req, res, next): Promise<void> => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
+app.post("/ready", async (req, res, next): Promise<void> => {
+  try {
+    const {latitude,longitude}=req.body
+    const result = await getAddressFromLatLng(latitude, longitude);
+    res.status(200).json({ success: true, result });
+  } catch (error: any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // Root endpoint
 app.get("/", async(req, res) => {
   res.status(200).json({
@@ -96,6 +107,7 @@ app.use("/booking", BookingRoutes);
 app.use("/slots", slotRoutes);
 app.use("/review", reviewRoutes);
 app.use("/payment", PayemntRoutes);
+app.use("/promocode",promocode)
 
 // Kafka message producer function
 async function main(topic: string, message: any) {
