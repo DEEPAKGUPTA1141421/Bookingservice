@@ -5,6 +5,14 @@ import { connectedProviders, wss } from "..";
 export interface IBooking extends IBaseSchema {
   user: Types.ObjectId;
   bookingSlot_id: Types.ObjectId;
+  actualPrice: string;
+  discount: string;
+  taxes: string;
+  finalPrice: string;
+  promoDiscount: string;
+  promoCode: Types.ObjectId;
+  paidByPoints: string;
+  paidbyCard: string;
   status:
     | "initiated"
     | "pending"
@@ -18,6 +26,8 @@ export interface IBooking extends IBaseSchema {
   completedTime?: Date;
   provider: Types.ObjectId;
   reached: boolean; // Use lowercase boolean, not Boolean
+  pointsUsed: string;
+  modeOfPayment: "cash" | "net-banking";
 
   address: {
     street?: string;
@@ -39,6 +49,16 @@ const BookingSchema = new Schema<IBooking>(
       ref: "BookedSlot",
       required: true,
     },
+    modeOfPayment: { type: String,enum:["cash","net-banking"]},
+    pointsUsed:{type:String,default:"0"},
+    actualPrice: { type: String, required: true }, // Stored as cents or a string
+    discount: { type: String, default: "0" }, // Discount stored safely as a string
+    taxes: { type: String, required: true }, // 18% tax stored as string
+    promoCode: { type: Schema.Types.ObjectId, ref: "PromoCode", default: null }, // Promo code applied
+    promoDiscount: { type: String, default: "0" }, // Promo discount
+    finalPrice: { type: String, required: true }, // Final computed price (stored as string)
+    paidByPoints: { type: String},
+    paidbyCard: { type: String },
     status: {
       type: String,
       enum: Object.values({
@@ -53,9 +73,8 @@ const BookingSchema = new Schema<IBooking>(
       }),
       default: "initiated",
     },
-    scheduledTime: { type: Boolean },
-    completedTime: { type: Date },
     reached: { type: Boolean, default: false },
+
     address: {
       street: String,
       city: String,
@@ -79,7 +98,7 @@ const BookingSchema = new Schema<IBooking>(
             message: "Coordinates must be an array of [longitude, latitude]",
           },
         },
-      }
+      },
     },
   },
   { timestamps: true }
@@ -95,8 +114,10 @@ BookingSchema.index({ status: 1 });
 // ✅ Create Model
 const Booking = model<IBooking>("Booking", BookingSchema);
 BookingSchema.post("save", async function (booking) {
+  if (booking.status != "confirmed") {
+    return;
+  }
   console.log("📢 New booking created, notifying relevant providers...");
-
   // Populate booking details before sending
   const populatedBooking = await mongoose
     .model("Booking")
