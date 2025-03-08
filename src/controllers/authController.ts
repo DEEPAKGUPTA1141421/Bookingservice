@@ -15,6 +15,8 @@ import {
 } from "../validations/authcontroller_validation";
 import { CheckZodValidation, generateOtp } from "../utils/helper";
 import { IRequest } from "../middleware/authorised";
+import ServiceProvider from "../models/ServiceProviderSchema ";
+import { Admin } from "../models/AdminSchema";
 
 dotenv.config();
 
@@ -40,8 +42,21 @@ export const sendOtp = async (
     console.log("frontend hitting me");
     const validation = CheckZodValidation(req.body, sendOtpSchema, next);
     const { phone } = validation.data;
-    let user = await User.findOne({ phone });
-
+    let role = "";
+    let user;
+    if (!user) {
+      user = await User.findOne({ phone });
+      if (user) role = "user";
+    }
+    if (!user) {
+      user = await ServiceProvider.findOne({ phone });
+      if (user) role = "provider"
+      
+    }
+    if (!user) {
+      user = await Admin.findOne({ phone });
+      if(user)role="admin"
+    }
     const otp = generateOtp();
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -64,6 +79,7 @@ export const sendOtp = async (
     sendResponse(res, 200, "OTP sent successfully", {
       isNewUser: !user,
       phone: phone,
+      role: role,
     });
   } catch (error) {
     const err = error as Error;
@@ -81,7 +97,20 @@ export const verifyOtp = async (
     const validation = CheckZodValidation(req.body, verifyOtpSchema, next);
     const { phone, otp } = validation.data;
     console.log("getting hit by client veriftotp", phone, otp);
-    const user = await User.findOne({ phone });
+    let role = "";
+    let user;
+    if (!user) {
+      user = await User.findOne({ phone });
+      if (user) role = "user";
+    }
+    else if (!user) {
+      user = await ServiceProvider.findOne({ phone });
+      if (user) role = "provider";
+    }
+    else if (!user) {
+      user = await Admin.findOne({ phone });
+      if (user) role = "admin";
+    }
 
     if (!user) return next(new ErrorHandler("User not found", 404));
 
@@ -106,6 +135,7 @@ export const verifyOtp = async (
     sendResponse(res, 200, "OTP verified successfully", {
       user: user,
       token: token,
+      role:"provider"
     });
   } catch (error) {
     const err = error as Error;
@@ -164,7 +194,8 @@ export const editUser = async (
     }
     if (email) updates.email = email.trim();
     if (phone) updates.phone = phone.trim();
-    if (add_address!=undefined && add_address!= null) updates.add_address = add_address.trim();
+    if (add_address != undefined && add_address != null) updates.add_address = add_address.trim();
+    console.log("check point")
     if (role) updates.role = role;
     if (password) updates.password = await bcrypt.hash(password, 10);
     if (profilePicture?.location) updates.image = profilePicture.location;
