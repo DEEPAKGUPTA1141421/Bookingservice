@@ -5,13 +5,15 @@ import { Schema, model, Types } from "mongoose";
 interface IServiceOption extends IBaseSchema {
   actualService: Types.ObjectId; // FK to ActualService
   name: string; // Option Name
-  price: number; // Price for this option
-  discount_price?: number; // Optional Discount Price
+  price: string; // Price for this option
+  discount_price?: string; // Optional Discount Price
   duration: number; // Duration in minutes
+  upto: string;
   description?: string; // Optional Description
   service_provider: Types.ObjectId; // FK to ServiceProvider
   images?: string[]; // Array of image URLs
   rating?: number; // Default rating
+  discount_type: "flat" | "percent";
 }
 
 interface IActualService extends IBaseSchema {
@@ -33,9 +35,14 @@ const ServiceOptionSchema = new Schema<IServiceOption>(
       required: true,
     },
     name: { type: String, required: true },
-    price: { type: Number, required: true },
-    discount_price: { type: Number },
-    duration: { type: Number, required: true },
+    price: { type: String, required: true },
+    discount_price: { type: String },
+    upto: { type: String },
+    discount_type: {
+      type: String,
+      enum: ["flat", "percent"],
+      default: "percent",
+    },
     description: { type: String },
     service_provider: {
       type: Schema.Types.ObjectId,
