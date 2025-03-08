@@ -100,6 +100,7 @@ export const updateServiceProviderSchema = z
       .refine((val) => !isNaN(val) && val >= -180 && val <= 180, {
         message: "Longitude must be a number between -180 and 180",
       }),
+    date:z.string()
   });
 
   export const UpdateAvailabilitySchema = z.object({
