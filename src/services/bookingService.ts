@@ -40,8 +40,8 @@ export interface UpdateBookingParams {
       coordinates: [number, number];
     };
   };
-  finalPrice: string;
-  pointsUsed?: string;
+  finalPrice: number;
+  pointsUsed?: number;
   modeOfPayment?: "cash" | "net-banking";
 }
 export const createBookingService = async ({
@@ -74,27 +74,19 @@ export const createBookingService = async ({
     });
     console.log("create slot", bookslot);
     if (bookslot && serviceoprtiondoc && serviceoprtiondoc.discount_price) {
-      const price = parseInt(serviceoprtiondoc.price, 10); // Total price in paisa
-      const discountPrice = parseInt(
-        serviceoprtiondoc.discount_price || "0",
-        10
-      ); // Discount price in paisa
-      const upto = parseInt(serviceoprtiondoc.upto || "0", 10); // Max discount limit in paisa
+      const price = serviceoprtiondoc.price; // Total price in paisa
+      const discountPrice =serviceoprtiondoc.discount_price || 0 // Discount price in paisa
+      const upto = serviceoprtiondoc.upto || 0 // Max discount limit in paisa
       // Ensure discount doesn't exceed price
       let discount = 0;
       if (serviceoprtiondoc.discount_type === "percent" && discountPrice > 0) {
         // Calculate percentage discount
-        discount = Math.floor((discountPrice * upto) / 100);
-
-        // Apply max limit (upto)
-        if (upto > 0) {
-          discount = Math.min(discount, upto);
-        }
+        discount = Math.ceil((discountPrice * upto) / 100);
       } else if (serviceoprtiondoc.discount_type === "flat") {
         // Flat discount (directly in paisa)
         discount = discountPrice;
       }
-      let taxes = Math.floor((discount * 18) / 100);
+      let taxes = Math.floor(((price-discount) * 18) / 100);
       //Final amount after discount
       const finalPrice = price - discount + taxes;
       console.log({ price, discount, finalPrice });
@@ -146,10 +138,7 @@ export const updateBookingService = async (response: UpdateBookingParams) => {
   if (address) booking.address = address;
   if (pointsUsed) booking.pointsUsed = pointsUsed;
   if (modeOfPayment) booking.modeOfPayment = modeOfPayment;
-  if (finalPrice)
-    booking.finalPrice = (
-      parseFloat(finalPrice) - parseFloat(pointsUsed || "0")
-    ).toString();
+  if (finalPrice)booking.finalPrice = finalPrice -(pointsUsed || 0)
   // Save updated booking
   await booking.save();
   return booking;
