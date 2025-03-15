@@ -5,10 +5,10 @@ import { Schema, model, Types } from "mongoose";
 interface IServiceOption extends IBaseSchema {
   actualService: Types.ObjectId; // FK to ActualService
   name: string; // Option Name
-  price: string; // Price for this option
-  discount_price?: string; // Optional Discount Price
+  price: number; // Price for this option
+  discount_price?: number; // Optional Discount Price
   duration: number; // Duration in minutes
-  upto: string;
+  upto: number;
   description?: string; // Optional Description
   service_provider: Types.ObjectId; // FK to ServiceProvider
   images?: string[]; // Array of image URLs
@@ -21,6 +21,7 @@ interface IActualService extends IBaseSchema {
   description?: string; // Optional Description
   images?: string[]; // Service Images
   service: Types.ObjectId; // FK to Service
+  options?: Array<Types.ObjectId>;
   expert_is_trained_in?: string[]; // New field: Expert training categories
   service_excludes?: string[]; // New field: Exclusions of the service
   what_we_need_from_you?: { image: string; description: string }[]; // New field: Required items
@@ -35,9 +36,9 @@ const ServiceOptionSchema = new Schema<IServiceOption>(
       required: true,
     },
     name: { type: String, required: true },
-    price: { type: String, required: true },
-    discount_price: { type: String },
-    upto: { type: String },
+    price: { type: Number, required: true },
+    discount_price: { type: Number },
+    upto: { type: Number },
     discount_type: {
       type: String,
       enum: ["flat", "percent"],
@@ -64,12 +65,12 @@ const ActualServiceSchema = new Schema<IActualService>(
     description: { type: String },
     images: { type: [String], default: [] },
     service: { type: Schema.Types.ObjectId, ref: "Service", required: true },
+    options: [{ type: Schema.Types.ObjectId, ref: "ServiceOption" }],
     expert_is_trained_in: { type: [String], default: [] }, // Array of training categories
     service_excludes: { type: [String], default: [] }, // Array of exclusions
-    what_we_need_from_you: {
-      type: [{ image: String, description: String }],
-      default: [],
-    }, // Array of required items
+    what_we_need_from_you: 
+      { type: [String], default: [] }
+    , // Array of required items
   },
   { timestamps: true, strict: false }
 );
