@@ -11,6 +11,7 @@ interface IServiceProvider extends IBaseSchema {
   email?: string;
   phone: string;
   actualService: Types.ObjectId; // Reference to ActualService
+  Service: Types.ObjectId;
   image?: string;
   status: "verified" | "unverified";
   company_name?: string;
@@ -39,6 +40,11 @@ const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
       ref: "ActualService",
       required: true,
     },
+    Service: [{
+      type: Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
+    }],
     image: { type: String },
     status: {
       type: String,
@@ -69,3 +75,5 @@ const ServiceProvider = mongoose.model<IServiceProvider>(
 );
 
 export default ServiceProvider;
+
+wow change
