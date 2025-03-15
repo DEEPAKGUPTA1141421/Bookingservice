@@ -22,9 +22,9 @@ export const createService = async (
   }
 };
 
-export const getServiceById = async (id: string, next: NextFunction) => {
+export const getService = async (next: NextFunction) => {
   try {
-    const service = await Service.findById(id).populate("category");
+    const service = await Service.find({}).lean();
     if (!service) {
       return next(new ErrorHandler("Service not found", 404));
     }
