@@ -7,6 +7,7 @@ export interface IServiceProvider extends IBaseSchema {
   email?: string;
   phone: string;
   actualService: Types.ObjectId; // Reference to ActualService
+  ServiceId:Array<Types.ObjectId>,
   image?: string;
   status: "verified" | "unverified";
   company_name?: string;
@@ -35,6 +36,13 @@ export const ServiceProviderSchema = new mongoose.Schema<IServiceProvider>(
       ref: "ActualService",
       required: true,
     },
+    ServiceId: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Service",
+        required: true,
+      },
+    ],
     image: { type: String },
     status: {
       type: String,
