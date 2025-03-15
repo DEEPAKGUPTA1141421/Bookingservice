@@ -35,7 +35,7 @@ const ServiceSchema = new Schema<IService>(
     name: { type: String, required: true, unique: true },
     description: { type: String },
     images: { type: [String], default: [] },
-    category: { type: Schema.Types.ObjectId, ref: "Category", required: true }, // Foreign key to Category
+    category: { type: Schema.Types.ObjectId, ref: "Category",}, // Foreign key to Category
   },
   { timestamps: true, strict: false }
 );
