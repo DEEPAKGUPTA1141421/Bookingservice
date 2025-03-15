@@ -1,145 +1,185 @@
-import mongoose, { Document, Types, Schema } from "mongoose";
-import cluster from "cluster";
-import os from "os";
-import { Kafka, EachMessagePayload } from "kafkajs";
-import dotenv from "dotenv";
-import { connectDb } from "./database";
-import ServiceProvider from "./ServiceProviderSchema";
-import { createRedisClient } from "./rediscache";
-dotenv.config();
-connectDb();
-
-const BULK_SIZE = 1000;
-const BULK_UPDATE_INTERVAL = 60 * 1000; // 1 minute
-
-// Redis client setup
-
-// Kafka consumer setup
+import express from "express";
+import cors from "cors";
+import { WebSocket, WebSocketServer } from "ws";
+import { Kafka } from "kafkajs";
+import cookieParser from "cookie-parser";
+import locationRoutes from "./routes/locationRoutes";
+import otpRoutes from "./routes/authRoutes";
+import AdminRoutes from "./routes/adminRoute";
+import cartRoutes from "./routes/cartRoutes";
+import ServiceRoutes from "./routes/serviceproviderRoute";
+import findProvider from "./routes/findProvider";
+import promocode from "./routes/promoCodeRoutes"
+import { errorMiddleware } from "./config/CustomErrorhandler";
+import { isAuthenticated } from "./middleware/authorised";
+import BookingRoutes from "./routes/bookingRoutes";
+import { connectDb } from "./config/database";
+import slotRoutes from "./routes/slotRoutes";
+import reviewRoutes from "./routes/reviewRoutes";
+import PayemntRoutes from "./routes/paymentRoute";
+import { sendRegistrationEmail } from "./config/mailer";
+import { createRedisClient } from "./config/redisCache";
+import ServiceProvider, { ServiceProviderSchema } from "./models/ServiceProviderSchema ";
+import { getAddressFromLatLng } from "./services/locationservice";
+import { BookedSlot } from "./models/BookedSlotSchema";
+import { Booking } from "./models/BookingSchema";
+import { Payment } from "./models/PaymentSchema";
+// Kafka producer setup
 const kafka = new Kafka({
-  clientId: "location-consumer",
+  clientId: "my-app",
   brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
 });
+const producer = kafka.producer();
 
-const consumer = kafka.consumer({ groupId: "location-group" });
+// Express app setup
+const app = express();
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cors());
 
-if (cluster.isPrimary) {
-  // Master process (primary) will spawn worker processes
-  const numWorkers = os.cpus().length;
-  console.log(`Master process running, spawning ${numWorkers} workers...`);
+// Middleware for setting Content-Security-Policy
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "connect-src 'self' ws://localhost:4000"
+  );
+  next();
+});
 
-  for (let i = 0; i < numWorkers - 1; i++) cluster.fork();
+const port = 4000;
+connectDb();
 
-  // Spawn a dedicated worker for bulk updating MongoDB
-  cluster.fork({ BULK_UPDATE_PROCESS: "true" });
+// Test endpoint
+app.get("/test", async (req, res, next): Promise<void> => {
+  try {
+    const redis = createRedisClient();
+    const pattern = "service_providers:*";
 
-  cluster.on("exit", (worker) => {
-    console.log(`Worker ${worker.process.pid} crashed. Restarting...`);
-    cluster.fork();
-  });
-} else if (process.env.BULK_UPDATE_PROCESS === "true") {
-  // Worker for bulk updating MongoDB
-  console.log(`🚀 Bulk update worker ${process.pid} started`);
+    const keys = await redis.keys(pattern);
+    if (keys.length === 0) {
+      res
+        .status(404)
+        .json({ success: false, message: "No service providers found" });
+    }
 
-  // Run bulk update every 1 minute
-  setInterval(() => {
-    bulkUpdateToMongo().catch(console.error);
-  }, BULK_UPDATE_INTERVAL);
-} else {
-  // Worker for consuming location updates
-  (async () => {
-    await consumer.connect();
-    await consumer.subscribe({
-      topic: "location-update",
-      fromBeginning: false,
-    });
+    const result: Record<string, string[]> = {};
 
-    console.log(`🚀 Worker ${process.pid} started consuming messages`);
+    for (const key of keys) {
+      const keyType = await redis.type(key);
 
-    await consumer.run({
-      eachMessage: async ({
-        topic,
-        partition,
-        message,
-      }: EachMessagePayload) => {
-        const messageValue = message.value?.toString();
-        const ActualService = message.key?.toString();
-        console.log("message",messageValue);
-        if (!messageValue) {
-          console.warn(`⚠️ Worker ${process.pid} received an empty message`);
-          return;
-        }
-
-        const { providerId, latitude, longitude } = JSON.parse(messageValue);
-        if (!ActualService) return;
-
-        // Add the location to Redis under the corresponding key (service provider's actual service)
-        await createRedisClient().geoadd(`geo:${ActualService}`,longitude,latitude,providerId);
-        // Store provider IDs separately for bulk updates
-        await createRedisClient().sadd(
-          `providers:${ActualService}`,
-          providerId
+      if (keyType === "zset") {
+        result[key] = await redis.zrange(key, 0, -1);
+      } else {
+        console.warn(
+          `⚠️ Skipping key ${key} because it is a ${keyType}, not a sorted set.`
         );
-        // expire the keys after 10 minutes
-        await createRedisClient().expire(`geo:${ActualService}`, 600);
-        await createRedisClient().expire(`providers:${ActualService}`, 600);
-      },
-    });
-  })();
-}
-
-// ✅ Bulk Update Function
-async function bulkUpdateToMongo() {
-  console.log(`🔄 Starting bulk update to MongoDB...`);
-
-  // Fetch all service categories dynamically
-  const serviceCategories = await createRedisClient().keys("geo:*"); // Example: ["geo:Plumbing", "geo:Electrician"]
-
-  let totalUpdated = 0;
-
-  for (const serviceKey of serviceCategories) {
-    const actualService = serviceKey.split(":")[1]; // Extract service name
-
-    // Fetch all providers under this service category
-    const providerIds = await createRedisClient().smembers(
-      `providers:${actualService}`
-    );
-
-    if (providerIds.length === 0) continue;
-
-    const bulkOps = [];
-
-    for (const providerId of providerIds) {
-      // Get the geo position for each provider from Redis
-      const geoData = await createRedisClient().geopos(serviceKey, providerId);
-      if (!geoData || !geoData[0]) continue;
-
-      const [longitude, latitude] = geoData[0];
-
-      // Prepare MongoDB bulk write operation
-      bulkOps.push({
-        updateOne: {
-          filter: { _id: new mongoose.Types.ObjectId(providerId) },
-          update: {
-            $set: {
-              "address.location": {
-                type: "Point",
-                coordinates: [longitude, latitude],
-              },
-            },
-          },
-        },
-      });
+      }
     }
-
-    // Perform the bulk update in MongoDB
-    if (bulkOps.length > 0) {
-      const result = await ServiceProvider.bulkWrite(bulkOps);
-      console.log(
-        `✅ Updated: ${result.modifiedCount}, Inserted: ${result.upsertedCount}`
-      );
-      totalUpdated += result.modifiedCount;
-    }
+    res.status(200).json({ success: true, result });
+  } catch (error: any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
+});
+app.post("/ready", async (req, res, next): Promise<void> => {
+  try {
+    const {latitude,longitude}=req.body
+    const result = await getAddressFromLatLng(latitude, longitude);
+    res.status(200).json({ success: true, result });
+  } catch (error: any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+// Root endpoint
+app.get("/", async (req, res) => {
+  // await BookedSlot.deleteMany({});
+  // await Booking.deleteMany({});
+  // await Payment.deleteMany({});
+  res.status(200).json({
+    msg: "Server is up and running from my end!",
+  });
+});
 
-  console.log(`✅ Total updated: ${totalUpdated} service providers.`);
+// API Routes
+app.use("/auth", otpRoutes);
+app.use("/location", locationRoutes);
+app.use("/admin", AdminRoutes);
+app.use("/cart", cartRoutes);
+app.use("/service-provider", ServiceRoutes);
+app.use("/find-provider", findProvider);
+app.use("/booking", BookingRoutes);
+app.use("/slots", slotRoutes);
+app.use("/review", reviewRoutes);
+app.use("/payment", PayemntRoutes);
+app.use("/promocode", promocode);
+
+// Kafka message producer function
+async function main(topic: string, message: any) {
+  await producer.connect();
+  await producer.send({
+    topic: topic,
+    messages: [message],
+  });
 }
+
+// Error handling middleware
+app.use(errorMiddleware);
+
+// Create the HTTP server for Express
+const server = app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
+
+// WebSocket server setup
+export const wss = new WebSocketServer({ server: server });
+// Store connected providers
+export const connectedProviders = new Map<string, WebSocket>();
+
+wss.on("connection", async (ws: any, req) => {
+  console.log("📡 New WebSocket Connection");
+
+  ws.on("message", async (message: any) => {
+    // Your logic here
+    const { type } = JSON.parse(message);
+    if (type == "Booking-Confirmed") {
+      console.log("ws", ws);
+      const { providerId, userId } = JSON.parse(message);
+      const result1 = await createRedisClient().set(
+        `socket:${userId}`,
+        providerId
+      );
+      const result2 = await createRedisClient().set(
+        `socket:${providerId}`,
+        userId
+      );
+      console.log("Set Provider and User In Redis", result1, result2);
+    }
+    else if (type == "First-Connection") {
+      console.log("Excahnge The ids");
+      const { id } = JSON.parse(message);
+      connectedProviders.set(id, ws);
+    }
+    else if (type=="Realtime-Update") {
+      const { id,latitude,longitude } = JSON.parse(message);
+      const myWebSocket = connectedProviders.get(id);
+      const otherId = await createRedisClient().get(`socket:${id}`);
+      if (!otherId) {
+        console.log("Connection is unavailable");
+        return;
+      }
+      const otherWebSocket = connectedProviders.get(otherId);
+      if (otherWebSocket && otherWebSocket.readyState === WebSocket.OPEN) {
+        otherWebSocket.send(
+          JSON.stringify({
+            type: "get-Real-Time-Update",
+            id: id,
+            latitude: latitude,
+            longitude: longitude,
+          })
+        );
+      }
+    }
+  });
+});
