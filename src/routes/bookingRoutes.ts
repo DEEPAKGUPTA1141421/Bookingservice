@@ -6,6 +6,7 @@ import {
   acceptBooking,
   updateBooking,
   getBookingDetails,
+  getConfirmBooking,
 } from "../controllers/bookingController";
 import { authorizeRoles, isAuthenticated } from "../middleware/authorised";
 
@@ -15,6 +16,7 @@ router.post("/initiate", isAuthenticated, createBooking); // Create booking from
 router.get("/all", isAuthenticated, getBookings); // Get all bookings for a user
 router.post("/confirm-booking", isAuthenticated, updateBooking);
 router.get("/:bookingId", getBookingDetails);
+router.post("/confirm-booking-details", getConfirmBooking);
 router.delete(
   "/:bookingId",
   isAuthenticated,
