@@ -9,12 +9,22 @@ export interface IOtp extends IBaseSchema {
   is_used: boolean; // Whether the OTP is used
   message?: string; // Optional message for the OTP
   typeOfOtp: "login" | "sign_up" | "delivered" | "reached"; // Type of OTP
+  user_type: "User" | "ServiceProvider" | "Admin"; // Type of User
 }
 
 // Define Mongoose Schema for Otp
 const OtpSchema = new mongoose.Schema<IOtp>(
   {
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: "user_type", // Dynamic reference
+    },
+    user_type: {
+      type: String,
+      required: true,
+      enum: ["User", "ServiceProvider", "Admin"], // Ensure it matches a valid model
+    },
     otp_code: { type: String, required: true },
     expires_at: { type: Date, required: true },
     is_used: { type: Boolean, default: false },
