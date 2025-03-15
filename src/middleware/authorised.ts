@@ -3,6 +3,7 @@ import ErrorHandler from "../config/GlobalerrorHandler";
 import jwt from "jsonwebtoken";
 import User from "../models/UserSchema";
 import ServiceProvider from "../models/ServiceProviderSchema ";
+import { Admin } from "../models/AdminSchema";
 
 export interface IUser {
     _id: string;
@@ -38,7 +39,8 @@ export const isAuthenticated = async (
 
     req.user =
       (await User.findById(decodedData.userId)) ||
-      (await ServiceProvider.findById(decodedData.userId)); // Find user or service provider
+    (await ServiceProvider.findById(decodedData.userId)) ||
+      (await Admin.findById(decodedData.userId))
     if (!req.user) {
       console.log("user not found");
       next(new ErrorHandler("User not found", 404));
