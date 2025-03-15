@@ -5,8 +5,8 @@ import { Schema, model, Types } from "mongoose";
 export interface IPromoCode extends IBaseSchema {
   code: string;
   description: string;
-  minimum_booking_amount: string | "0";
-  max_discount_amount: string;
+  minimum_booking_amount: number | 0;
+  max_discount_amount: number;
   Actualservices: Types.ObjectId[];
   total_available_per_user?: number;
   total_available?: number;
@@ -86,8 +86,8 @@ const PromoCodeSchema = new Schema<IPromoCode>(
     // ✅ Move validate inside the array definition
     code: { type: String, required: true, unique: true }, // Promo code string
     description: { type: String }, // Description of the promo code
-    minimum_booking_amount: { type: String }, // Minimum booking amount to apply the promo code
-    max_discount_amount: { type: String }, // Maximum discount that can be applied
+    minimum_booking_amount: { type: Number }, // Minimum booking amount to apply the promo code
+    max_discount_amount: { type: Number }, // Maximum discount that can be applied
     total_available_per_user: { type: Number }, // Total number of times the promo code can be used per user
     total_available: { type: Number }, // Total number of promo codes available
     rate: { type: Number, required: true }, // Discount rate (flat or percentage)
