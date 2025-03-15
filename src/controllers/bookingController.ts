@@ -16,8 +16,10 @@ import ErrorHandler from "../config/GlobalerrorHandler";
 import mongoose from "mongoose";
 import { Booking } from "../models/BookingSchema";
 import { sendResponse } from "../utils/responseHandler";
-import { CheckZodValidation } from "../utils/helper";
+import { CheckZodValidation, convertStringToObjectId } from "../utils/helper";
 import { IRequest } from "../middleware/authorised";
+import { Payment } from "../models/PaymentSchema";
+import { bookSlot } from "./slotController";
 function transformBookingRequest(body: any) {
   const { modeOfPayment, pointsUsed, bookingId, address, status, finalPrice } =
     body;
@@ -94,6 +96,30 @@ export const createBooking = async (
   }
 };
 
+export const getConfirmBooking = async (
+  req: Request,
+  res: Response,
+  next:NextFunction
+): Promise<void> => {
+  try {
+    let { BookingId } = req.body;
+    if (!BookingId) {
+      next(new ErrorHandler("TranscationId Is Empty", 201));
+      return;
+    }
+    BookingId = convertStringToObjectId(BookingId);
+    console.log(BookingId, "vvvvvv");
+    const bookingdetails = await Booking.find({_id:BookingId}).populate({
+      path: "bookingSlot_id"
+    });
+    console.log(bookingdetails)
+    sendResponse(res, 201, "Booking Details", bookingdetails);
+  }
+  catch (error) {
+    next(new ErrorHandler("Failed To Fetch Booking Details", 501));
+  }
+};
+
 export const getBookingDetails = async (
   req: Request,
   res: Response
@@ -155,6 +181,7 @@ export const updateBooking = async (
       .json({
         message: "Booking updated successfully",
         booking: updatedBooking,
+        success:true
       });
   } catch (error: any) {
     console.error("Error updating booking:", error);
