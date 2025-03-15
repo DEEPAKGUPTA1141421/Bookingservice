@@ -12,6 +12,7 @@ import {
   getServiceController,
   updateServiceController,
   deleteServiceController,
+  getserviceDetails,
 } from "../controllers/admin/ServiceController";
 import {
   createActualServiceController,
@@ -87,12 +88,9 @@ router.post(
   upload.array("serviceImages"),
   createServiceController
 );
-router.get(
-  "/service/:id",
-  isAuthenticated,
-  authorizeRoles("admin"),
-  getServiceController
-);
+router.get("/service", getServiceController);
+
+router.get("/service/:id", getserviceDetails);
 router.put(
   "/service/:id",
   isAuthenticated,
@@ -100,24 +98,18 @@ router.put(
   upload.array("serviceImages"),
   updateServiceController
 );
-router.delete(
-  "/service/:id",
-  isAuthenticated,
-  authorizeRoles("admin"),
-  deleteServiceController
-);
+router.delete("/service/:id", isAuthenticated, deleteServiceController);
 
 router.post(
   "/create-actual-service",
   upload.array("actualServiceImages"),
+  (req, res, next) => {
+    console.log("called you and checking value and said this", req.body);
+    next();
+  },
   createActualServiceController
 );
-router.get(
-  "/actual-service/:id",
-  isAuthenticated,
-  authorizeRoles("admin"),
-  getActualServiceController
-);
+router.get("/actual-service/:id", getActualServiceController);
 router.put(
   "/update/:id",
   isAuthenticated,
@@ -138,11 +130,7 @@ router.post(
   upload.array("serviceOptionImages"),
   createServiceOptionController
 );
-router.get(
-  "/service-option/:id",
-  isAuthenticated,
-  getServiceOptionController
-);
+router.get("/service-option/:id", isAuthenticated, getServiceOptionController);
 router.put(
   "/update/:id",
   isAuthenticated,
