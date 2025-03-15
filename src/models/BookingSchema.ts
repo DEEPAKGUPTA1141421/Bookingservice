@@ -5,14 +5,14 @@ import { connectedProviders, wss } from "..";
 export interface IBooking extends IBaseSchema {
   user: Types.ObjectId;
   bookingSlot_id: Types.ObjectId;
-  actualPrice: string;
-  discount: string;
-  taxes: string;
-  finalPrice: string;
-  promoDiscount: string;
+  actualPrice: number;
+  discount: number;
+  taxes: number;
+  finalPrice: number;
+  promoDiscount: number;
   promoCode: Types.ObjectId;
-  paidByPoints: string;
-  paidbyCard: string;
+  paidByPoints: number;
+  paidbyCard: number;
   status:
     | "initiated"
     | "pending"
@@ -26,7 +26,7 @@ export interface IBooking extends IBaseSchema {
   completedTime?: Date;
   provider: Types.ObjectId;
   reached: boolean; // Use lowercase boolean, not Boolean
-  pointsUsed: string;
+  pointsUsed: number;
   modeOfPayment: "cash" | "net-banking";
 
   address: {
@@ -50,15 +50,15 @@ const BookingSchema = new Schema<IBooking>(
       required: true,
     },
     modeOfPayment: { type: String,enum:["cash","net-banking"]},
-    pointsUsed:{type:String,default:"0"},
-    actualPrice: { type: String, required: true }, // Stored as cents or a string
-    discount: { type: String, default: "0" }, // Discount stored safely as a string
-    taxes: { type: String, required: true }, // 18% tax stored as string
+    pointsUsed:{type:Number,default:0},
+    actualPrice: { type: Number, required: true }, // Stored as cents or a string
+    discount: { type: Number, default: 0 }, // Discount stored safely as a string
+    taxes: { type: Number, required: true }, // 18% tax stored as string
     promoCode: { type: Schema.Types.ObjectId, ref: "PromoCode", default: null }, // Promo code applied
-    promoDiscount: { type: String, default: "0" }, // Promo discount
-    finalPrice: { type: String, required: true }, // Final computed price (stored as string)
-    paidByPoints: { type: String},
-    paidbyCard: { type: String },
+    promoDiscount: { type: Number, default: 0 }, // Promo discount
+    finalPrice: { type: Number, required: true }, // Final computed price (stored as string)
+    paidByPoints: { type: Number},
+    paidbyCard: { type: Number },
     status: {
       type: String,
       enum: Object.values({
