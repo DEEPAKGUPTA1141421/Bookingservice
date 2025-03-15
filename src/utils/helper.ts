@@ -133,24 +133,23 @@ export async function removeServiceProviderFromRedis(
   providerId: string,
   serviceId: string
 ): Promise<boolean> {
-  const redis = createRedisClient();
-  serviceId = serviceId.toString();
-  const key = `service_providers:${serviceId}`;
-  console.log("at redis client end", key);
+  try {
+    const redis = createRedisClient();
+    const serviceKey = `geocord:${serviceId}`;
 
-  // Check if the provider exists
-  const exists = await redis.zscore(key, providerId.toString());
-  if (exists === null) {
-    console.log(`⚠️ Provider ${providerId} not found in ${key}`);
+    console.log("Removing provider from Redis with key:", serviceKey);
+
+    const result = await redis.zrem(serviceKey, providerId);
+
+    console.log("Remove result:", result);
+
+    return result > 0; // Returns true if at least one entry was removed
+  } catch (error) {
+    console.error("Error removing provider from Redis:", error);
     return false;
   }
-
-  // Remove provider
-  const removed = await redis.zrem(key, providerId.toString());
-  console.log(`✅ Removed Provider ${providerId} from ${key}:`, removed);
-
-  return removed > 0;
 }
+
 
 
 export async function getAvailableProvidersFromRedis(
