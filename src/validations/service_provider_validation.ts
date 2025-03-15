@@ -77,6 +77,9 @@ export const updateServiceProviderSchema = z
           .optional(),
       })
       .optional(),
+    ServiceId: z.array(objectIdSchema).optional(),
+    age: z.string().optional(),
+    adhadharCard: z.string().length(16).optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "At least one field must be provided for update",
@@ -84,8 +87,6 @@ export const updateServiceProviderSchema = z
 
 
   export const createAvailabilitySchema = z.object({
-    providerId: objectIdSchema,
-    serviceId:objectIdSchema,
     start_time: z.string().min(1, "Start time is required"),
     end_time: z.string().min(1, "End time is required"),
     latitude: z
@@ -104,8 +105,6 @@ export const updateServiceProviderSchema = z
   });
 
   export const UpdateAvailabilitySchema = z.object({
-    providerId: objectIdSchema,
-    serviceId: objectIdSchema,
     latitude: z
       .union([z.string(), z.number()])
       .transform((val) => Number(val))
