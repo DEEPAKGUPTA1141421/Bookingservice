@@ -7,9 +7,9 @@ import {
 } from "../../validations/admin_validation";
 import {
   createService,
-  getServiceById,
   updateService,
   deleteService,
+  getService,
 } from "../../services/admin/serviceService";
 import ErrorHandler from "../../config/GlobalerrorHandler";
 import { createRedisClient } from "../../config/redisCache";
@@ -59,33 +59,24 @@ export const getServiceController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const validation = deleteServiceSchema.safeParse(req.params);
-    if (!validation.success)
-      return next(new ErrorHandler(validation.error.errors[0].message, 400));
-
-    const { id } = validation.data;
-
-    // Check cache
-    const cachedService = await createRedisClient().get(`service:${id}`);
-    if (cachedService) {
-      sendResponse(
-        res,
-        200,
-        "Service retrieved from cache",
-        JSON.parse(cachedService)
-      );
-      return;
-    }
-
-    const response = await getServiceById(id, next);
+    const response = await getService(next);
     if (!response) return next(new ErrorHandler("Service not found", 404));
 
-    // Cache for 10 minutes
-    await createRedisClient().setex(
-      `service:${id}`,
-      600,
-      JSON.stringify(response)
-    );
+    sendResponse(res, 200, "Service fetched successfully", response);
+  } catch (error: any) {
+    next(new ErrorHandler(error.message, 500));
+  }
+};
+
+export const getserviceDetails = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const response = await Service.findById(id);
+    if (!response) return next(new ErrorHandler("Service not found", 404));
 
     sendResponse(res, 200, "Service fetched successfully", response);
   } catch (error: any) {
