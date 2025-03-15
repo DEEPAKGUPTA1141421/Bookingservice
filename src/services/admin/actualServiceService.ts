@@ -1,6 +1,7 @@
 import { NextFunction } from "express";
 import { ActualService } from "../../models/ActualServiceSchema";
 import ErrorHandler from "../../config/GlobalerrorHandler";
+import { convertStringToObjectId } from "../../utils/helper";
 
 // Create Actual Service
 export const createActualService = async (
@@ -10,7 +11,7 @@ export const createActualService = async (
   service: string,
   expert_is_trained_in: string[],
   service_excludes: string[],
-  what_we_need_from_you: { image: string; description: string }[],
+  what_we_need_from_you: string[],
   next: NextFunction
 ) => {
   try {
@@ -26,21 +27,27 @@ export const createActualService = async (
     if (newActualService) {
       return { id: newActualService._id };
     } else {
-      return next(new ErrorHandler("Actual Service could not be created", 500));
+      console.log("Actual Service could not be created");
+      throw new ErrorHandler("Actual Service could not be created", 500);
     }
   } catch (error: any) {
-    return next(new ErrorHandler(error.message, 500));
+    console.log("Actual Service could not be created",error.message);
+    throw new ErrorHandler(error.message, 500);
   }
 };
 
 // Read Actual Service
 export const getActualServiceById = async (id: string, next: NextFunction) => {
   try {
-    const actualService = await ActualService.findById(id)
-      .populate("service")
-      .populate("expert_is_trained_in")
-      .populate("service_excludes")
-      .populate("what_we_need_from_you");
+    console.log("getActualServiceById id", id);
+      const actualService = await ActualService.find({
+        service: convertStringToObjectId(id),
+      }).populate({
+       path: "service",
+       select: "_id name",
+       })
+      .populate("options");
+    console.log("data checking", actualService);
     if (!actualService)
       return next(new ErrorHandler("Actual Service not found", 404));
     return actualService;
