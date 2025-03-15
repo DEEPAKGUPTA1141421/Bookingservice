@@ -6,7 +6,6 @@ dateOnly.setUTCHours(0, 0, 0, 0);
 // ✅ Define Interface for ServiceProviderAvailability
 export interface IServiceProviderAvailability extends IBaseSchema {
   provider: Types.ObjectId; // Reference to ServiceProvider
-  actial_service: Types.ObjectId; // Reference to ActualService
   service: Types.ObjectId; // Reference to Service
   date: Date; // Date of availability
   start_time: string; // Start time of work
@@ -24,11 +23,11 @@ const ServiceProviderAvailabilitySchema =
         ref: "ServiceProvider",
         required: true,
       },
-      service: {
+      service: [{
         type: Schema.Types.ObjectId,
-        ref: "ActualService",
+        ref: "Service",
         required: true,
-      },
+      }],
       date: {
         type: Date,
         required: true,
