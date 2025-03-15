@@ -30,7 +30,7 @@ export interface IUser extends IBaseSchema {
   current_address: string;
   listofAddress: string[];
   distance_current_address: string
-  points:string
+  points:number
 }
 const UserSchema = new Schema<IUser>(
   {
@@ -47,7 +47,7 @@ const UserSchema = new Schema<IUser>(
       enum: ["verified", "unverified"],
       default: "unverified",
     },
-    points:{type:String, default:"0"},
+    points:{type:Number, default:0},
     image: { type: String },
     address: {
       street: String,
