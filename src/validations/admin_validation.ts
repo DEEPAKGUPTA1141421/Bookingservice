@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { objectIdSchema } from "../utils/helper";
 export const mongoObjectIdSchema = z
   .string()
   .min(8, { message: "Invalid ObjectID: Must be at least 8 characters long" })
@@ -75,22 +76,10 @@ export const createActualServiceSchema = z.object({
   images: z
     .array(z.string().url({ message: "Each image must be a valid URL" }))
     .nonempty({ message: "At least one image is required" }),
-  service: z.string().length(24, { message: "Invalid service ID" }),
+  service: z.string(),
   expert_is_trained_in: z.array(z.string()).optional(),
   service_excludes: z.array(z.string()).optional(),
-  what_we_need_from_you: z
-    .array(
-      z.object({
-        image: z.string().url({ message: "Image must be a valid URL" }),
-        description: z
-          .string()
-          .min(5, {
-            message: "Description must be at least 5 characters long",
-          }),
-      })
-    )
-    .optional(),
-  options: z.array(z.string().length(24)).optional(),
+  what_we_need_from_you: z.array(z.string()).optional()
 });
 
 export const getActualServiceSchema = z.object({
