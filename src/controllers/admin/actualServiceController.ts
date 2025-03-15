@@ -22,6 +22,7 @@ export const createActualServiceController = async (
   next: NextFunction
 ) => {
   try {
+    console.log("here to fun");
     if (!req.files || !(req.files as Express.MulterS3.File[]).length) {
       return next(new ErrorHandler("At least one image is required", 400));
     }
@@ -30,16 +31,24 @@ export const createActualServiceController = async (
       (file) => file.location
     );
 
+    console.log("data patch", imageUrls);
+
     const validation = createActualServiceSchema.safeParse({
       ...req.body,
       images: imageUrls,
     });
 
+   console.log("Validation:", validation);
+   console.log(
+     "Errors:",
+     validation.error?.format?.() || validation.error?.message
+   );
+
     if (!validation.success) {
       return next(new ErrorHandler(validation.error.errors[0].message, 400));
     }
 
-    const { name, description, images, service, options } = validation.data;
+    const { name, description, images, service } = validation.data;
 
     // Ensure these fields exist if needed
     const expert_is_trained_in = req.body.expert_is_trained_in || [];
@@ -59,8 +68,10 @@ export const createActualServiceController = async (
 
     if (response) {
       sendResponse(res, 201, "Actual Service Created Successfully", response);
+      return;
     }
   } catch (error: any) {
+    console.log("error", error.message);
     next(new ErrorHandler(error.message, 500));
   }
 };
