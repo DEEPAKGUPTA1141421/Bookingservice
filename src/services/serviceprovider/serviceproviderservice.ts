@@ -2,7 +2,10 @@ import ErrorHandler from "../../config/GlobalerrorHandler";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import crypto from "crypto";
 import Redis from "ioredis";
-import { create_status_return, OtpVerficationType } from "../../utils/GlobalTypescript";
+import {
+  create_status_return,
+  OtpVerficationType,
+} from "../../utils/GlobalTypescript";
 import {
   addServiceProviderToRedis,
   convertStringToObjectId,
@@ -22,7 +25,10 @@ import ServiceProvider from "../../models/ServiceProviderSchema ";
 export const createServiceProviderService = async (data: any, next: any) => {
   try {
     const newProvider = await ServiceProvider.create(data);
-    if (!newProvider) return next(new ErrorHandler("Service Provider could not be created", 500));
+    if (!newProvider)
+      return next(
+        new ErrorHandler("Service Provider could not be created", 500)
+      );
     return { id: newProvider._id };
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
@@ -33,7 +39,8 @@ export const createServiceProviderService = async (data: any, next: any) => {
 export const getAllServiceProvidersService = async (next: any) => {
   try {
     const providers = await ServiceProvider.find({});
-    if (!providers.length) return next(new ErrorHandler("No Service Providers found", 404));
+    if (!providers.length)
+      return next(new ErrorHandler("No Service Providers found", 404));
     return providers;
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
@@ -44,7 +51,8 @@ export const getAllServiceProvidersService = async (next: any) => {
 export const getServiceProviderByIdService = async (id: string, next: any) => {
   try {
     const provider = await ServiceProvider.findById(id);
-    if (!provider) return next(new ErrorHandler("Service Provider not found", 404));
+    if (!provider)
+      return next(new ErrorHandler("Service Provider not found", 404));
     return provider;
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
@@ -52,10 +60,17 @@ export const getServiceProviderByIdService = async (id: string, next: any) => {
 };
 
 // Update a service provider
-export const updateServiceProviderService = async (id: string, data: any, next: any) => {
+export const updateServiceProviderService = async (
+  id: ObjectId,
+  data: any,
+  next: any
+) => {
   try {
-    const updatedProvider = await ServiceProvider.findByIdAndUpdate(id, data, { new: true });
-    if (!updatedProvider) return next(new ErrorHandler("Service Provider not found", 404));
+    const updatedProvider = await ServiceProvider.findByIdAndUpdate(id, data, {
+      new: true,
+    });
+    if (!updatedProvider)
+      return next(new ErrorHandler("Service Provider not found", 404));
     return updatedProvider;
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
@@ -66,13 +81,13 @@ export const updateServiceProviderService = async (id: string, data: any, next: 
 export const deleteServiceProviderService = async (id: string, next: any) => {
   try {
     const deletedProvider = await ServiceProvider.findByIdAndDelete(id);
-    if (!deletedProvider) return next(new ErrorHandler("Service Provider not found", 404));
+    if (!deletedProvider)
+      return next(new ErrorHandler("Service Provider not found", 404));
     return { message: "Service Provider deleted successfully" };
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
   }
 };
-
 
 export const getLocationFromProviderService = async (providerId: string) => {
   // Try fetching the location from Redis
@@ -121,117 +136,205 @@ export const getLocationFromProviderService = async (providerId: string) => {
   return null;
 };
 
-export const createAvailabilityservice = async (data: any): Promise<create_status_return> => {
+export const createAvailabilityservice = async (
+  data: any
+): Promise<{ status: string }> => {
   try {
-    const {
-      providerId,
-      serviceId,
-      start_time,
-      end_time,
-      latitude,
-      longitude,
-      date
-    } = data;
-    console.log("in Service", data);
-    const dateOnly = new Date(date);
-    dateOnly.setUTCHours(0, 0, 0, 0);
-    // Check if availability exists
-    console.log("providerId", providerId);
-    
-    console.log(typeof(providerId));
+    const { providerId, start_time, end_time, latitude, longitude, date } =
+      data;
+
+    // Fetch service IDs for the provider
+    let serviceALLId = await ServiceProvider.findById(providerId, {
+      ServiceId: 1,
+    }).lean();
+    serviceALLId = serviceALLId?.ServiceId;
+    console.log("serviceALLId", serviceALLId);
+    if (!serviceALLId || !Array.isArray(serviceALLId)) {
+      throw new ErrorHandler(
+        "Invalid Data: No services found for provider",
+        404
+      );
+    }
+
+    console.log("in Service", serviceALLId);
+
+    let dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0); // Midnight in local time (IST)
+
+    // Convert to UTC manually
+    const istOffset = 5.5 * 60 * 60 * 1000; // +5:30 hours in milliseconds
+    dateOnly = new Date(dateOnly.getTime() - istOffset); // Adjust back to UTC
+
+    console.log("Final UTC Date to store:", dateOnly.toISOString());
+
+    // Check if availability already exists
     const existingAvailability = await ServiceProviderAvailability.findOne({
       provider: providerId,
       date: dateOnly,
     });
-    
+
     let obj = { status: "created" };
-    console.log("existing", existingAvailability);
+    let isAdd = true;
     if (existingAvailability) {
-      obj.status="exists";
+      console.log("inSide Existing");
+      for (const serviceId of serviceALLId) {
+        const currobj = await addServiceProviderToRedis(
+          serviceId.toString(), // Convert ObjectId to string if needed
+          providerId,
+          latitude,
+          longitude
+        );
+        console.log("isAdd", isAdd);
+        if (!currobj) {
+          isAdd = false;
+        }
+      }
+      obj.status = "created";
+      obj.status = isAdd ? "created" : "failed_to_add_in_redis";
+      console.log("status check", obj, isAdd);
       return obj;
     } else {
-      const newavailable = await ServiceProviderAvailability.create({
-        provider: providerId,
-        service: serviceId,
-        date: dateOnly,
-        start_time,
-        end_time,
-        is_active: true,
-      });
-      if (!newavailable) {
-        obj.status = "failed"; 
+        const availabilities = [];
+        for (let i = 0; i < 4; i++) { // Today + next 3 days
+          const date = new Date();
+          date.setUTCDate(date.getUTCDate() + i); // Move to the next day
+          date.setUTCHours(0, 0, 0, 0); // Ensure time is set to 00:00 UTC
+      
+          const formattedDate = date.toISOString(); // Format to "2025-03-13T00:00:00.000+00:00"
+      
+          const newAvailability = new ServiceProviderAvailability({
+            provider: providerId,
+            service: serviceALLId, // Ensure it's an array
+            date: formattedDate, // Use the correct format
+            start_time,
+            end_time,
+            is_active: true,
+          });
+          availabilities.push(newAvailability);
+        }
+       const insertreponse=await ServiceProviderAvailability.insertMany(availabilities);
+      console.log("Availability created for today and next 3 days in ISO format.");
+      if (!insertreponse) {
+        obj.status = "failed";
+        return obj;
       }
-      const isAdd = await addServiceProviderToRedis(serviceId, providerId, latitude, longitude);
-      isAdd === true
-        ? (obj.status = "created")
-        : (obj.status = "failed_to add_in_redis");
+      console.log("New Availability Created", insertreponse);
+      };
+      for (const serviceId of serviceALLId) {
+        const currobj = await addServiceProviderToRedis(
+          serviceId.toString(), // Convert ObjectId to string if needed
+          providerId,
+          latitude,
+          longitude
+        );
+
+        if (!currobj) {
+          isAdd = false;
+        }
+      }
+      console.log("I am Here");
+      obj.status = isAdd ? "created" : "failed_to_add_in_redis";
+      console.log("status check", obj, isAdd);
       return obj;
-    }
   }
   catch (error: any) {
-    throw new ErrorHandler(error.message, 501);
+    throw new ErrorHandler(error.message || "Server Error", 501);
   }
 };
 
 export const UpdateAvailabilityService = async (
   data: any
-): Promise<create_status_return> => {
+): Promise<{ status: string }> => {
   try {
     const dateOnly = new Date();
     dateOnly.setUTCHours(0, 0, 0, 0);
-    const { providerId, serviceId, latitude, longitude } = data;
-    console.log("data", latitude, longitude);
+
+    const { providerId, latitude, longitude } = data;
+    console.log("Received data:", { providerId, latitude, longitude });
+
     const obj = { status: "updated" };
+
+    // Fetch service provider details
+    const serviceALLId = await ServiceProvider.findById(providerId, {
+      serviceId: 1,
+    }).lean();
+
+    if (
+      !serviceALLId ||
+      !Array.isArray(serviceALLId.serviceId) ||
+      serviceALLId.serviceId.length === 0
+    ) {
+      throw new ErrorHandler("Invalid provider or no associated services", 404);
+    }
+
+    const serviceIds = serviceALLId.serviceId.map((id) => id.toString());
+
     // Check if availability exists
     const existingAvailability = await ServiceProviderAvailability.findOne({
       provider: providerId,
-      service: serviceId,
       date: dateOnly,
     });
 
-    if (existingAvailability) {
-      console.log("value", existingAvailability);
+    if (!existingAvailability) {
+      console.log("No existing availability found for provider:", providerId);
+      obj.status = "not_exists";
+      return obj;
     }
 
-    if (!existingAvailability) {
-      obj.status = "not_exits";
-      return obj;
-    } else {
-      console.log("else")
-      const toggle = existingAvailability.is_active;
-      console.log("toggle", toggle);
-      if (toggle == false) {
-        console.log("in if")
-        const isAdd: any = await addServiceProviderToRedis(
+    console.log("Existing Availability:", existingAvailability);
+
+    const isCurrentlyActive = existingAvailability.is_active;
+
+    if (!isCurrentlyActive) {
+      console.log("Activating service in Redis...");
+
+      let isAddSuccess = true;
+      for (const serviceId of serviceIds) {
+        const isAdded = await addServiceProviderToRedis(
           serviceId,
-          providerId,
+          providerId.toString(),
           latitude,
           longitude
         );
-        isAdd == true
-          ? (obj.status = "failed_to add_in_redis")
-          : (obj.status = "updated");
-        existingAvailability.is_active = true
-      } else {
-        console.log("providerId", providerId);
-        console.log("serviceId", serviceId);
-        const isRemove: any = await removeServiceProviderFromRedis(
-          providerId,
-          serviceId
-        );
-        isRemove == false
-          ? (obj.status = "failed_to remove_from_redis")
-          : (obj.status = "updated");
-        existingAvailability.is_active = false
+        if (!isAdded) isAddSuccess = false;
       }
-      await existingAvailability.save();
-      return obj;
+
+      if (!isAddSuccess) {
+        obj.status = "failed_to_add_in_redis";
+        return obj;
+      }
+
+      existingAvailability.is_active = true;
+    } else {
+      console.log("Deactivating service from Redis...");
+
+      let isRemoveSuccess = true;
+      for (const serviceId of serviceIds) {
+        const isRemoved = await removeServiceProviderFromRedis(
+          providerId.toString(),
+          serviceId.toString()
+        );
+        if (!isRemoved) isRemoveSuccess = false;
+      }
+
+      if (!isRemoveSuccess) {
+        obj.status = "failed_to_remove_from_redis";
+        return obj;
+      }
+
+      existingAvailability.is_active = false;
     }
-  }
-  catch (error: any) {
-    throw new ErrorHandler(error.message, 501);
+
+    await existingAvailability.save();
+    console.log("Availability updated successfully:", existingAvailability);
+
+    return obj;
+  } catch (error: any) {
+    console.error("Error in UpdateAvailabilityService:", error);
+    throw new ErrorHandler(error.message || "Internal Server Error", 501);
   }
 };
+
 export const reachedAtUserLocationService = async (
   data: OtpVerficationType
 ): Promise<create_status_return> => {
@@ -277,7 +380,6 @@ export const reachedAtUserLocationService = async (
   }
 };
 
-
 export const getNearbyServiceProviders = async (
   latitude: number,
   longitude: number,
@@ -287,7 +389,15 @@ export const getNearbyServiceProviders = async (
 ) => {
   const dateOnly = new Date(date);
   dateOnly.setUTCHours(0, 0, 0, 0); // Normalize date to midnight UTC
-  console.log(latitude, longitude, radius, serviceId, date);
+  console.log("datecheck",dateOnly,date);
+  console.log(
+    "getNearbyServiceProviders",
+    latitude,
+    longitude,
+    radius,
+    serviceId,
+    date
+  );
   const serviceProviders = await ServiceProvider.aggregate([
     {
       $geoNear: {
@@ -309,8 +419,6 @@ export const getNearbyServiceProviders = async (
   const providerAvailabilities = await ServiceProviderAvailability.find(
     {
       provider: { $in: providerIds },
-      date: dateOnly,
-      is_active: true,
     },
     { provider: 1, available_bit: 1 }
   ).lean();
@@ -357,7 +465,7 @@ export const getNearbyServiceProviders = async (
       }
     }
   }
-  
+
   return returnProviders;
 };
 
