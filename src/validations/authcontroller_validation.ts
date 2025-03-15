@@ -7,6 +7,7 @@ export const sendOtpSchema = z.object({
     .regex(/^[0-9]{10}$/, {
       message: "Phone number must contain only digits (0-9)",
     }),
+  user_type: z.enum(["User", "ServiceProvider", "Admin"]).optional()
 });
 
 export const verifyOtpSchema = z.object({
@@ -78,3 +79,30 @@ export const editUserSchema = z
     message: "At least one field must be provided for update",
     path: [],
   });
+
+export const aadhaarSchema = z.object({
+  aadhaarNumber: z
+    .string()
+    .length(12, "Aadhaar number must be exactly 12 digits.")
+    .regex(/^\d{12}$/, "Aadhaar number must contain only digits."),
+});
+
+// Aadhaar OTP Request Schema
+export const aadhaarOtpSchema = z.object({
+  aadhaarNumber: z
+    .string()
+    .length(12, "Aadhaar number must be exactly 12 digits.")
+    .regex(/^\d{12}$/, "Aadhaar number must contain only digits."),
+});
+
+// Aadhaar OTP Verification Schema
+export const aadhaarOtpVerifySchema = z.object({
+  aadhaarNumber: z
+    .string()
+    .length(12, "Aadhaar number must be exactly 12 digits.")
+    .regex(/^\d{12}$/, "Aadhaar number must contain only digits."),
+  otp: z
+    .string()
+    .length(6, "OTP must be exactly 6 digits.")
+    .regex(/^\d{6}$/, "OTP must contain only digits."),
+});
