@@ -125,9 +125,15 @@ router.delete(
 
 router.post(
   "/create-option",
-  isAuthenticated,
-  authorizeRoles("admin"),
+  (req, res, next) => {
+    console.log("hello");
+    next();
+  },
   upload.array("serviceOptionImages"),
+  (req, res, next) => {
+    console.log("hello again");
+    next();
+  },
   createServiceOptionController
 );
 router.get("/service-option/:id", isAuthenticated, getServiceOptionController);
