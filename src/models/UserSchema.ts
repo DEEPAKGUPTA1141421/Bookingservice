@@ -97,12 +97,12 @@ UserSchema.pre("findOneAndUpdate", async function (next) {
 
     try {
       const fullAddress = await getAddressFromLatLng(latitude, longitude);
-      const existingDoc = await this.model
+      const existingDoc:any= await this.model
         .findOne(this.getQuery())
         .select("listofAddress")
         .lean();
 
-      let addressArray: string[] = Array.isArray(existingDoc?.listofAddress)
+      let addressArray: any = Array.isArray(existingDoc?.listofAddress)
         ? existingDoc.listofAddress
         : [];
 
@@ -143,12 +143,12 @@ UserSchema.pre("findOneAndUpdate", async function (next) {
         };
       }
 
-      const existingDoc = await this.model
+      const existingDoc:any = await this.model
         .findOne(this.getQuery())
         .select("listofAddress")
         .lean();
 
-      let addressArray: string[] = Array.isArray(existingDoc?.listofAddress)
+      let addressArray: any = Array.isArray(existingDoc?.listofAddress)
         ? existingDoc.listofAddress
         : [];
 
