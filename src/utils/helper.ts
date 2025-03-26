@@ -1,6 +1,6 @@
 import { NextFunction } from "express";
 import ErrorHandler from "../config/GlobalerrorHandler";
-import mongoose, { Types } from "mongoose";
+import mongoose, { ObjectId, Types } from "mongoose";
 import { z } from "zod";
 import { createRedisClient } from "../config/redisCache";
 export const CheckZodValidation = (
@@ -153,7 +153,7 @@ export async function removeServiceProviderFromRedis(
 
 
 export async function getAvailableProvidersFromRedis(
-  serviceId: Types.ObjectId,
+  serviceId: Types.ObjectId | undefined,
   latitude: number,
   longitude: number,
   radius: number
@@ -272,6 +272,13 @@ export const updatelivelocation = async (
     latitude,
     longitude
   );
+};
+
+export const getBestProvider = async (
+  providers: Array<Types.ObjectId>
+): Promise<any> => {
+  // rest logic later
+  return providers[0];
 };
 
 
