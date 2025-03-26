@@ -2,6 +2,7 @@ import { Bool } from "aws-sdk/clients/clouddirectory";
 import { IBaseSchema } from "../utils/GlobalTypescript";
 import mongoose, { Schema, model, Types } from "mongoose";
 import { connectedProviders, wss } from "..";
+import { createRedisClient } from "../config/redisCache";
 export interface IBooking extends IBaseSchema {
   user: Types.ObjectId;
   bookingSlot_id: Types.ObjectId;
@@ -112,18 +113,19 @@ BookingSchema.index({ user: 1 });
 BookingSchema.index({ status: 1 });
 
 // ✅ Create Model
-const Booking = model<IBooking>("Booking", BookingSchema);
 BookingSchema.post("save", async function (booking) {
-  if (booking.status != "confirmed") {
+  console.log("hit at the end");
+  if (booking.status !== "confirmed") {
     return;
   }
-  console.log("📢 New booking created, notifying relevant providers...");
+
+  console.log("📢 New confirmed booking, notifying relevant providers...");
+
   // Populate booking details before sending
   const populatedBooking = await mongoose
     .model("Booking")
     .findById(booking._id)
     .populate("user", "name email") // Populate user info
-    .populate("cart") // Populate cart info
     .populate("bookingSlot_id") // Populate slot details
     .lean();
 
@@ -133,23 +135,16 @@ BookingSchema.post("save", async function (booking) {
     .findById(booking.bookingSlot_id);
 
   if (!bookedSlot || !bookedSlot.providers) return;
-
-  bookedSlot.providers.forEach((providerId: string) => {
+    const providerId = bookedSlot.providers[0];
     const ws = connectedProviders.get(providerId); // Get provider's WebSocket connection
+      console.log(`📩 Sent "Booking-Confirmed" to Provider ${providerId}`);
 
-    if (ws && ws.readyState === 1) {
-      ws.send(
-        JSON.stringify({
-          type: "NEW_BOOKING",
-          providerId,
-          message: "A new booking is available. Please accept.",
-          booking: populatedBooking, // Send full booking details
-        })
-      );
-      console.log(`📩 Sent full booking details to Provider ${providerId}`);
-    } else {
+      // Store the connection in Redis
+      const res1=await createRedisClient().set(`socket:${booking.user}`, providerId);
+      const res2 = await createRedisClient().set(`socket:${providerId}`, booking?.user?.toString());
+      console.log("booking", res1, res2);
+   
       console.log(`⚠️ Provider ${providerId} is not connected`);
-    }
-  });
 });
+const Booking = model<IBooking>("Booking", BookingSchema);
 export { Booking };
