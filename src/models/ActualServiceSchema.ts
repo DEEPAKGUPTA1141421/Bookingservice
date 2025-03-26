@@ -10,7 +10,6 @@ interface IServiceOption extends IBaseSchema {
   duration: number; // Duration in minutes
   upto: number;
   description?: string; // Optional Description
-  service_provider: Types.ObjectId; // FK to ServiceProvider
   images?: string[]; // Array of image URLs
   rating?: number; // Default rating
   discount_type: "flat" | "percent";
@@ -42,14 +41,9 @@ const ServiceOptionSchema = new Schema<IServiceOption>(
     discount_type: {
       type: String,
       enum: ["flat", "percent"],
-      default: "percent",
+      required:true
     },
     description: { type: String },
-    service_provider: {
-      type: Schema.Types.ObjectId,
-      ref: "ServiceProvider",
-      required: true,
-    },
     images: { type: [String], default: [] },
     rating: { type: Number, default: 0 },
   },
@@ -68,9 +62,7 @@ const ActualServiceSchema = new Schema<IActualService>(
     options: [{ type: Schema.Types.ObjectId, ref: "ServiceOption" }],
     expert_is_trained_in: { type: [String], default: [] }, // Array of training categories
     service_excludes: { type: [String], default: [] }, // Array of exclusions
-    what_we_need_from_you: 
-      { type: [String], default: [] }
-    , // Array of required items
+    what_we_need_from_you: { type: [String], default: [] }, // Array of required items
   },
   { timestamps: true, strict: false }
 );
