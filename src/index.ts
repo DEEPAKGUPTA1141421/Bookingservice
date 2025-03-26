@@ -21,12 +21,14 @@ import { sendRegistrationEmail } from "./config/mailer";
 import { createRedisClient } from "./config/redisCache";
 import ServiceProvider, { ServiceProviderSchema } from "./models/ServiceProviderSchema ";
 import { getAddressFromLatLng } from "./services/locationservice";
+import { getAccessToken } from "./services/FcmService";
+import { ServiceOption } from "./models/ActualServiceSchema";
 // Kafka producer setup
-const kafka = new Kafka({
-  clientId: "my-app",
-  brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
-});
-const producer = kafka.producer();
+// const kafka = new Kafka({
+//   clientId: "my-app",
+//   brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
+// });
+// const producer = kafka.producer();
 
 // Express app setup
 const app = express();
@@ -48,6 +50,17 @@ const port = 4000;
 connectDb();
 
 // Test endpoint
+app.post("/send-notification", async (req, res) => {
+  try {
+    const { token, title, body } = req.body;
+    const result = await getAccessToken();
+    // You can use the access token here to make any API calls or send notifications
+    res.json({ success: true, message: "Notification sent", result });
+  } catch (error) {
+    console.error("Error sending notification:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 app.get("/test", async (req, res, next): Promise<void> => {
   try {
     const redis = createRedisClient();
@@ -90,11 +103,18 @@ app.post("/ready", async (req, res, next): Promise<void> => {
   }
 });
 // Root endpoint
-app.get("/", async(req, res) => {
-  res.status(200).json({
-    msg: "Server is up and running from my end!",
-  });
+app.get("/", async (req, res) => {
+  try {
+    res.status(200).json({
+      success:true,
+      message: "Service options created successfully!",
+    });
+  } catch (error) {
+    console.error("Error creating service options:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 });
+
 
 // API Routes
 app.use("/auth", otpRoutes);
@@ -110,13 +130,13 @@ app.use("/payment", PayemntRoutes);
 app.use("/promocode",promocode)
 
 // Kafka message producer function
-async function main(topic: string, message: any) {
-  await producer.connect();
-  await producer.send({
-    topic: topic,
-    messages: [message],
-  });
-}
+// async function main(topic: string, message: any) {
+//   await producer.connect();
+//   await producer.send({
+//     topic: topic,
+//     messages: [message],
+//   });
+// }
 
 // Error handling middleware
 app.use(errorMiddleware);
