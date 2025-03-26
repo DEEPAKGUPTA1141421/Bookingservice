@@ -22,36 +22,51 @@ export const isAuthenticated = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization; // Get Authorization header
+    const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      next(new ErrorHandler("Please Login To Access The Routes", 401));
-      return;
+      return next(new ErrorHandler("Please login to access this route", 401));
     }
 
-    const token = authHeader.split(" ")[1]; // Extract token from 'Bearer <token>'
+    const token = authHeader.split(" ")[1]; // Extract token
     console.log("Extracted Token:", token);
 
-    const decodedData = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as jwt.JwtPayload;
+    let decodedData;
+    try {
+      decodedData = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as jwt.JwtPayload;
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        return next(
+          new ErrorHandler("Session expired. Please log in again.", 401)
+        );
+      } else if (error.name === "JsonWebTokenError") {
+        return next(
+          new ErrorHandler("Invalid token. Please log in again.", 401)
+        );
+      } else {
+        return next(new ErrorHandler("Authentication failed.", 401));
+      }
+    }
+
     console.log("Decoded Token Data:", decodedData);
 
     req.user =
       (await User.findById(decodedData.userId)) ||
-    (await ServiceProvider.findById(decodedData.userId)) ||
-      (await Admin.findById(decodedData.userId))
+      (await ServiceProvider.findById(decodedData.userId)) ||
+      (await Admin.findById(decodedData.userId));
+
     if (!req.user) {
-      console.log("user not found");
-      next(new ErrorHandler("User not found", 404));
-      return;
+      console.log("User not found");
+      return next(new ErrorHandler("User not found", 404));
     }
-    console.log("control transfer");
+
+    console.log("Control transferred to next middleware");
     next(); // Proceed to next middleware
   } catch (error) {
     console.log("Auth Error:", error);
-    next(new ErrorHandler("Invalid or expired token", 401));
-    return;
+    return next(new ErrorHandler("Authentication error", 500));
   }
 };
 
