@@ -10,6 +10,9 @@ import {
   updateAvailability,
   reachedAtUserLocation,
   getProvidersWithinRadius,
+  getTimingSlots,
+  getAllLiveAndPastBookings,
+  genericOptions,
 } from "../controllers/serviceprovider/serviceProviderController";
 import upload from "../middleware/upload";
 import { isAuthenticated } from "../middleware/authorised";
@@ -23,6 +26,8 @@ router.put(
   upload.single("serviceproviderpicture"),
   updateServiceProvider
 );
+
+router.post("/get-all-bookings", isAuthenticated, getAllLiveAndPastBookings);
 router.delete("/delete/:id",isAuthenticated, deleteServiceProvider);
 router.get("/location/:id",isAuthenticated, getServiceProviderLocation);
 
@@ -32,5 +37,8 @@ router.put("/update-availibility",isAuthenticated, updateAvailability);
 router.post("/otpverification", isAuthenticated, reachedAtUserLocation);
 
 router.post("/get-providers-within-radius", getProvidersWithinRadius);
+
+router.post("/get-slots", getTimingSlots);
+router.get("/generic-options",isAuthenticated, genericOptions);
 
 export default router;
