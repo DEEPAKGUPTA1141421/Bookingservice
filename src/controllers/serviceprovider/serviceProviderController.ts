@@ -127,7 +127,7 @@ export const updateServiceProvider = async (
       next(new ErrorHandler("validation failed", 400));
       return;
     }
-    const providerId = req.user?._id;
+    const providerId:any = req.user?._id;
     console.log("providerId", providerId);
     const response = await updateServiceProviderService(
       providerId,
