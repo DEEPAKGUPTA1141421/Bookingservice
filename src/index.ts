@@ -55,7 +55,7 @@ app.post("/send-notification", async (req, res) => {
     const result = await getAccessToken();
     // You can use the access token here to make any API calls or send notifications
     res.json({ success: true, message: "Notification sent", result });
-  } catch (error) {
+  } catch (error:any) {
     console.error("Error sending notification:", error);
     res.status(500).json({ success: false, message: error.message });
   }
