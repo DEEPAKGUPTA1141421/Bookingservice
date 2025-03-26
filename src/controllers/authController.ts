@@ -286,7 +286,8 @@ export const verifyAadhaar = async (
       return;
     }
 
-    const { aadhaarNumber } = parsedData.data;
+    const { aadhaarNumber } = parsedData?.data || {};
+
 
     // Call Aadhaar Verifier API
     const response = await fetch(
@@ -333,11 +334,11 @@ export const sendAadhaarOTP = async (
     if (!parsedData.success) {
        res
         .status(400)
-         .json({ success: false, message: parsedData.error.errors });
+         .json({ success: false, message: parsedData?.error?.errors });
       return;
     }
 
-    const { aadhaarNumber } = parsedData.data;
+    const { aadhaarNumber } = parsedData?.data || {};
 
     // Call Aadhaar Verifier API to send OTP
     const response = await fetch(
@@ -387,11 +388,12 @@ export const verifyAadhaarOTP = async (req: Request, res: Response, nex: NextFun
     if (!parsedData.success) {
       res
         .status(400)
-        .json({ success: false, message: parsedData.error.errors });
+        .json({ success: false, message: parsedData?.error?.errors });
       return;
     }
 
-    const { aadhaarNumber, otp } = parsedData.data;
+    const { aadhaarNumber,otp } = parsedData?.data || {};
+
 
     // Call Aadhaar Verifier API to verify OTP
     const response = await fetch(
