@@ -42,7 +42,9 @@ export const getPromoCodes = async (
   next: NextFunction
 ) => {
   try {
-    const promoCodes = await PromoCode.find();
+    const promoCodes = await PromoCode.find({ typeofPromoCode: "direct" }, {
+      _id:1,code:1,description:1,tnc:1,rate:1,rate_type:1
+    }).lean();
     res.status(200).json({ success: true, data: promoCodes });
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
