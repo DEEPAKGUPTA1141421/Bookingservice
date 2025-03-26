@@ -179,12 +179,29 @@ export const formatTime = (date: Date): string => {
 };
 
 
+// export const getIndex = (startTime: string): number => {
+//   let [currHour, currMinute] = startTime.split(":").map(Number);
+
+//   // Convert hours and minutes into 15-minute slots
+//   return currHour * 4 + Math.floor(currMinute / 15);
+// };
+
 export const getIndex = (startTime: string): number => {
-  let [currHour, currMinute] = startTime.split(":").map(Number);
+  let [time, modifier] = startTime.split(" "); // Split "08:00 AM" -> ["08:00", "AM"]
+  let [currHour, currMinute] = time.split(":").map(Number); // Convert "08:00" -> [8, 0]
+
+  // Convert 12-hour format to 24-hour format
+  if (modifier === "pm" && currHour !== 12) {
+    currHour += 12; // Convert PM hours (except 12 PM)
+  }
+  if (modifier === "am" && currHour === 12) {
+    currHour = 0; // Convert 12 AM to 0 hours
+  }
 
   // Convert hours and minutes into 15-minute slots
   return currHour * 4 + Math.floor(currMinute / 15);
 };
+
 
 
 export const checkConsecutive = (
@@ -192,7 +209,7 @@ export const checkConsecutive = (
   timeIndex: number,
   numberOfSlots: number
 ): boolean => {
-  console.log("data checking",available_bit,timeIndex,numberOfSlots);
+  console.log("checkconsucutive",available_bit,timeIndex,numberOfSlots);
   if (timeIndex < 0 || timeIndex + numberOfSlots > available_bit.length)
     return false;
 
