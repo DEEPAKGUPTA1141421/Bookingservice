@@ -6,7 +6,11 @@ import { BookedSlot } from "../models/BookedSlotSchema";
 import mongoose from "mongoose";
 import { connectedProviders } from "..";
 import { Type } from "aws-sdk/clients/cloudformation";
-import { convertStringToObjectId, convertToHHMM } from "../utils/helper";
+import {
+  convertStringToObjectId,
+  convertToHHMM,
+  getBestProvider,
+} from "../utils/helper";
 import { ServiceProviderAvailability } from "../models/ServiceProviderAvailabilitySchema";
 import { getIndex } from "./slotService";
 import { Types } from "mongoose";
@@ -17,9 +21,9 @@ import { boolean } from "zod";
 interface BookingData {
   userId: Types.ObjectId | any;
   date: string; // YYYY-MM-DD format
-  duration: number;
+  duration?: number;
   serviceoption: string;
-  start_time: string; // HH:MM format
+  start_time: string | Date; // HH:MM format
   providersList: string[]; // Array of provider IDs
   actualService: string;
 }
@@ -60,7 +64,7 @@ export const createBookingService = async ({
     );
     const serviceoprtiondoc = await ServiceOption.findById(
       convertStringToObjectId(serviceoption),
-      { price: 1, discount_price: 1, discount_type: 1, upto: 1 }
+      { name: 1, price: 1, discount_price: 1, discount_type: 1, upto: 1 }
     ).lean();
 
     console.log("service layer", serviceoprtiondoc);
@@ -75,8 +79,9 @@ export const createBookingService = async ({
     console.log("create slot", bookslot);
     if (bookslot && serviceoprtiondoc && serviceoprtiondoc.discount_price) {
       const price = serviceoprtiondoc.price; // Total price in paisa
-      const discountPrice =serviceoprtiondoc.discount_price || 0 // Discount price in paisa
-      const upto = serviceoprtiondoc.upto || 0 // Max discount limit in paisa
+      const discountPrice = serviceoprtiondoc.discount_price || 0; // Discount price in paisa
+      const upto = serviceoprtiondoc.upto || 0; // Max discount limit in paisa
+      const name = serviceoprtiondoc.name;
       // Ensure discount doesn't exceed price
       let discount = 0;
       if (serviceoprtiondoc.discount_type === "percent" && discountPrice > 0) {
@@ -86,7 +91,7 @@ export const createBookingService = async ({
         // Flat discount (directly in paisa)
         discount = discountPrice;
       }
-      let taxes = Math.floor(((price-discount) * 18) / 100);
+      let taxes = Math.floor(((price - discount) * 18) / 100);
       //Final amount after discount
       const finalPrice = price - discount + taxes;
       console.log({ price, discount, finalPrice });
@@ -110,6 +115,7 @@ export const createBookingService = async ({
           actualPrice: price,
           taxes: taxes,
           finalPrice: finalPrice,
+          name: name,
         };
       } else {
         return { success: false };
@@ -128,7 +134,7 @@ export const updateBookingService = async (response: UpdateBookingParams) => {
     response;
 
   // Find the booking by ID
-  const booking = await Booking.findById(bookingId);
+  const booking = await Booking.findById(bookingId).populate("bookingSlot_id");
   if (!booking) {
     throw new ErrorHandler("Booking not found", 404);
   }
@@ -138,7 +144,7 @@ export const updateBookingService = async (response: UpdateBookingParams) => {
   if (address) booking.address = address;
   if (pointsUsed) booking.pointsUsed = pointsUsed;
   if (modeOfPayment) booking.modeOfPayment = modeOfPayment;
-  if (finalPrice)booking.finalPrice = finalPrice -(pointsUsed || 0)
+  if (finalPrice) booking.finalPrice = finalPrice - (pointsUsed || 0);
   // Save updated booking
   await booking.save();
   return booking;
@@ -151,12 +157,11 @@ export const getBookingsService = async (
 ) => {
   try {
     const offset = (page - 1) * limit; // Calculate offset
-
     const bookings = await Booking.find({ user: userId })
-      .sort({ updated_at: -1 }) // Sort by created_at DESC
+      .sort({ updatedAt: -1 }) // Sort by created_at DESC
       .limit(limit) // Limit results to 30
       .skip(offset); // Apply offset for pagination
-
+    console.log("booking sort", bookings);
     return bookings;
   } catch (error: any) {
     console.error("Error fetching bookings:", error);
@@ -201,15 +206,9 @@ export const deleteBookingService = async (bookingId: string) => {
   }
 };
 
-export const acceptBookingService = async (
-  bookingId: string,
-  providerId: string
-) => {
-  if (
-    !mongoose.Types.ObjectId.isValid(bookingId) ||
-    !mongoose.Types.ObjectId.isValid(providerId)
-  ) {
-    throw new ErrorHandler("Invalid booking or provider ID", 400);
+export const acceptBookingService = async (bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ErrorHandler("Invalid booking Id", 400);
   }
 
   const session = await mongoose.startSession();
@@ -219,14 +218,13 @@ export const acceptBookingService = async (
     // ✅ Fetch booking with LOCK for updates
     const booking = await Booking.findOne({
       _id: bookingId,
-      status: { $eq: "initiated" }, // Status should not be "confirmed"
+      status: { $eq: "pending" }, // Status should not be "confirmed"
     }).session(session);
     if (!booking) throw new ErrorHandler("Booking not found", 404);
 
     const bookedSlot = await BookedSlot.findOne({
       _id: booking.bookingSlot_id,
       status: { $eq: "initiated" },
-      providers: { $in: [convertStringToObjectId(providerId)] }, // Check if providerId exists in providers array
     }).session(session);
     if (!bookedSlot) throw new ErrorHandler("Booked slot not found", 404);
 
@@ -234,6 +232,7 @@ export const acceptBookingService = async (
     const previousProviders = bookedSlot.providers;
 
     // ✅ Remove other providers & keep only the accepting provider
+    const providerId = await getBestProvider(bookedSlot.providers);
     bookedSlot.providers = [convertStringToObjectId(providerId)];
     await bookedSlot.save({ session });
 
@@ -245,11 +244,15 @@ export const acceptBookingService = async (
     let index: string | number = convertToHHMM(
       bookedSlot.start_time.toDateString()
     );
+    if (!bookedSlot.slotTiming) {
+      return { success: false, message: "Booking Failed" };
+    }
     index = getIndex(index);
     const response = await ChangeBitOfProvider(
       providerId,
       index,
-      bookedSlot.slotTiming / 30
+      bookedSlot.slotTiming / 15,
+      bookedSlot.date
     );
     if (!response) {
       await session.abortTransaction(); // Rollback on error
@@ -262,33 +265,17 @@ export const acceptBookingService = async (
     session.endSession();
 
     // 🔔 Notify the User
-    const ws1 = connectedProviders.get(userId.toString());
-    if (ws1 && ws1.readyState === 1) {
-      ws1.send(
-        JSON.stringify({
-          type: "BOOKING_CONFIRMED",
-          message: "Your booking has been confirmed!",
-          bookingId,
-        })
-      );
-    }
-
-    // 🔔 Notify other providers that booking is taken
-    previousProviders.forEach((otherProviderId: any) => {
-      if (otherProviderId !== providerId) {
-        const ws = connectedProviders.get(otherProviderId.toString());
-        if (ws && ws.readyState === 1) {
-          ws.send(
-            JSON.stringify({
-              type: "BOOKING_UNAVAILABLE",
-              message: "This booking has already been accepted.",
-              bookingId,
-            })
-          );
-        }
-      }
-    });
-
+    // const ws1 = connectedProviders.get(userId.toString());
+    // if (ws1 && ws1.readyState === 1) {
+    //   ws1.send(
+    //     JSON.stringify({
+    //       type: "BOOKING_CONFIRMED",
+    //       message: "Your booking has been confirmed!",
+    //       bookingId,
+    //       data: { userId, providerId },
+    //     })
+    //   );
+    // }
     return { success: true, message: "Booking confirmed", providerId };
   } catch (error: any) {
     await session.abortTransaction(); // Rollback on error
@@ -300,38 +287,59 @@ export const acceptBookingService = async (
 const ChangeBitOfProvider = async (
   providerId: string,
   timeIndex: number,
-  numberOfSlots: number
+  numberOfSlots: number,
+  date: Date
 ) => {
+  try {
+    const aviliblity = await ServiceProviderAvailability.find(
+      {
+        provider: providerId,
+        is_active: true,
+        date: date,
+      },
+      { available_bit: 1 }
+    ).lean();
+    if (!aviliblity || aviliblity.available_bit) {
+      return false;
+    }
+    let bitforchange = aviliblity.available_bit;
+    for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
+      bitforchange[i] = "0";
+    }
+    aviliblity.available_bit = bitforchange;
+    await aviliblity.save();
+    return true;
+  } catch {}
+};
+
+export const checkConsecutive = (
+  available_bit: string,
+  timeIndex: number,
+  numberOfSlots: number
+): boolean => {
+  console.log("checkconsucutive", available_bit, timeIndex, numberOfSlots);
+  if (timeIndex < 0 || timeIndex + numberOfSlots > available_bit.length)
+    return false;
+
+  // Check left boundary (if not the first slot)
+  if (timeIndex > 0 && available_bit[timeIndex - 1] === "0") {
+    return false;
+  }
+
+  // Check if all required slots are available
+  for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
+    if (available_bit[i] === "0") {
+      return false; // Slot already booked
+    }
+  }
+
+  // Check right boundary (if not the last slot)
+  if (
+    timeIndex + numberOfSlots < available_bit.length &&
+    available_bit[timeIndex + numberOfSlots] === "0"
+  ) {
+    return false;
+  }
+
   return true;
-  // const dateOnly = new Date();
-  // dateOnly.setUTCHours(0, 0, 0, 0);
-  // const existingAvailability = await ServiceProviderAvailability.findOne(
-  //   {
-  //     provider: convertStringToObjectId(providerId),
-  //     date: dateOnly,
-  //   },
-  //   { available_bit: 1 } // Projection to fetch only `available_bit`
-  // );
-
-  // if (!existingAvailability) return false; // If no record exists
-  // let availableBit = existingAvailability.available_bit;
-
-  // // Check if all slots are available
-  // for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
-  //   if (((availableBit >> i) & 1) === 0) {
-  //     return false; // Slot already booked
-  //   }
-  //   availableBit &= ~(1 << i); // Set bit to 0 (mark as booked)
-  // }
-
-  // // Update the document in DB
-  // const updatedDoc = await ServiceProviderAvailability.updateOne(
-  //   {
-  //     provider: convertStringToObjectId(providerId),
-  //     date: dateOnly,
-  //   },
-  //   { available_bit: availableBit }
-  // );
-
-  // return updatedDoc.modifiedCount > 0; // Return true if update was successful
 };
