@@ -20,6 +20,8 @@ import { CheckZodValidation, convertStringToObjectId } from "../utils/helper";
 import { IRequest } from "../middleware/authorised";
 import { Payment } from "../models/PaymentSchema";
 import { bookSlot } from "./slotController";
+import User from "../models/UserSchema";
+import { BookedSlot } from "../models/BookedSlotSchema";
 function transformBookingRequest(body: any) {
   const { modeOfPayment, pointsUsed, bookingId, address, status, finalPrice } =
     body;
@@ -72,12 +74,16 @@ export const createBooking = async (
       actualService,
       isScheduled,
     } = req.body;
+
+    const datefornow = new Date(start_time);
+    const istDate = new Date(datefornow.getTime() + 5.5 * 60 * 60 * 1000);
+    const istISOString = istDate.toISOString().replace("Z", "+05:30");
     const booking = await createBookingService({
       userId,
       date,
       duration,
       serviceoption,
-      start_time,
+      start_time: istDate,
       providersList,
       actualService,
     });
@@ -99,23 +105,24 @@ export const createBooking = async (
 export const getConfirmBooking = async (
   req: Request,
   res: Response,
-  next:NextFunction
+  next: NextFunction
 ): Promise<void> => {
   try {
     let { BookingId } = req.body;
     if (!BookingId) {
-      next(new ErrorHandler("TranscationId Is Empty", 201));
+      next(new ErrorHandler("BookingId Is Empty", 201));
       return;
     }
     BookingId = convertStringToObjectId(BookingId);
     console.log(BookingId, "vvvvvv");
-    const bookingdetails = await Booking.find({_id:BookingId}).populate({
-      path: "bookingSlot_id"
+    const bookingdetails = await Booking.find({ _id: BookingId }).populate({
+      path: "bookingSlot_id",
+      populate: [{ path: "serviceoption" }],
     });
-    console.log(bookingdetails)
+    console.log(bookingdetails);
     sendResponse(res, 201, "Booking Details", bookingdetails);
-  }
-  catch (error) {
+  } catch (error) {
+    console.log("errr",error)
     next(new ErrorHandler("Failed To Fetch Booking Details", 501));
   }
 };
@@ -159,7 +166,6 @@ export const updateBooking = async (
 ): Promise<void> => {
   try {
     console.log("Body checkup:", req.body);
-
     // Validate request body
     const validation = updateBookingSchema.safeParse(req.body);
     if (!validation.success) {
@@ -169,23 +175,58 @@ export const updateBooking = async (
     }
 
     // Transform request for DB insertion
-    const requestData:any = transformBookingRequest(
-      validation.data
-    );
+    const requestData: any = transformBookingRequest(validation.data);
 
     // Update booking in the database
     const updatedBooking = await updateBookingService(requestData);
 
-    res
-      .status(200)
-      .json({
-        message: "Booking updated successfully",
-        booking: updatedBooking,
-        success:true
-      });
+    res.status(200).json({
+      message: "Booking updated successfully",
+      booking: updatedBooking,
+      success: true,
+    });
   } catch (error: any) {
     console.error("Error updating booking:", error);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getLiveOrdersOfProvider = async (
+  req: IRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const providerId = convertStringToObjectId("67b1dd2e74cac7b6b9d8407d");
+     const now = new Date();
+     const fifteenMinutesAfterNow = new Date(now.getTime() + 15 * 60000);
+     
+     const liveOrders = await Booking.find({
+       providers: { $in: [providerId] }, // Match provider's orders
+       $expr: {
+         $and: [
+           { $lte: ["$start_time", fifteenMinutesAfterNow] }, // Show 15 min before start_time
+           {
+             $gte: [
+               { $add: ["$start_time", { $multiply: ["$slotTiming", 60000] }] },
+               now,
+             ],
+           }, // Keep showing until slot ends
+         ],
+       },
+     }).populate("Acutalservice serviceoption");
+
+    res.status(200).json({
+      success: true,
+      message: "live orders",
+      liveOrders,
+    });
+  } catch (error) {
+    const err =
+      error instanceof ErrorHandler
+        ? error
+        : new ErrorHandler("Error fetching bookings", 500);
+    res.status(err.statusCode).json({ message: err.message });
   }
 };
 
@@ -232,21 +273,184 @@ export const acceptBooking = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const validatedData = CheckZodValidation(
-      req.body,
-      acceptBookingSchema,
-      next
-    );
-    if (!validatedData.success) {
-      next(new ErrorHandler("Validation failed", 500));
+    const { bookingId } = req.body;
+
+    if (!bookingId) {
+      res.status(400).json({ message: "Booking ID is required" });
       return;
     }
-    const { bookingId, providerId } = validatedData.data;
-    const result = await acceptBookingService(bookingId, providerId);
+    const result = await acceptBookingService(bookingId);
     sendResponse(res, 201, "Accepted SuccessFully", result);
   } catch (error: any) {
     next(new ErrorHandler(error.message, 501));
   }
 };
 
+export const applyPoints = async (
+  req: IRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Start a transaction
 
+  try {
+    const { bookingId } = req.body;
+
+    if (!bookingId) {
+      res.status(400).json({ message: "Booking ID is required" });
+      return;
+    }
+
+    const userId = req.user?._id;
+    // Fetch user and booking details inside the transaction
+    const user = await User.findOne({ _id: userId }).session(session);
+    const booking = await Booking.findOne({ _id: bookingId }).session(session);
+
+    if (!user || !booking) {
+      await session.abortTransaction();
+      session.endSession();
+      res.status(404).json({ message: "User or Booking not found" });
+      return;
+    }
+
+    if (booking.pointsUsed != 0) {
+      await session.abortTransaction();
+      session.endSession();
+      res
+        .status(200)
+        .json({ message: "Points Already Appllied On This Boooking" });
+      return;
+    }
+    if (booking.actualPrice < 30000) {
+      // Ensure booking price is above ₹300 (30000 paise)
+      await session.abortTransaction();
+      session.endSession();
+      res.status(400).json({
+        message: "Booking price must be at least ₹300 to use points",
+      });
+      return;
+    }
+
+    // **Deduct points: 10,000 paise (₹100) per order, but user can use up to 100 paise (₹1)**
+    const pointsToUse = Math.min(user.points, 10000); // Max usage cap of 100 points (₹1)
+
+    if (pointsToUse < 10000) {
+      await session.abortTransaction();
+      session.endSession();
+      res.status(400).json({ message: "Insufficient points to apply" });
+      return;
+    }
+
+    // Update user points atomically using `$inc`
+    const updatedUser = await User.updateOne(
+      { _id: userId, points: { $gte: pointsToUse } }, // Ensure user has enough points
+      { $inc: { points: -pointsToUse } }, // Deduct points atomically
+      { session }
+    );
+
+    if (updatedUser.modifiedCount === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      res.status(400).json({ message: "Not enough points to apply" });
+      return;
+    }
+
+    // Update booking with applied points
+    booking.pointsUsed = pointsToUse;
+    booking.finalPrice = booking.finalPrice - pointsToUse;
+    await booking.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    sendResponse(res, 200, "Points applied successfully", {
+      pointsUsed: pointsToUse,
+      remainingPoints: user.points - pointsToUse, // Updated value after transaction
+      finalPrice: booking.finalPrice,
+    });
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    next(new ErrorHandler(error.message, 500));
+  }
+};
+
+export const removeAppliedPoints = async (
+  req: IRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction(); // Start a transaction
+
+  try {
+    const { bookingId } = req.body;
+    console.log("hello from this side");
+
+    if (!bookingId) {
+      res.status(400).json({ message: "Booking ID is required" });
+      return;
+    }
+
+    const userId = req.user?._id;
+    console.log("hello from this side");
+    // Fetch user and booking details inside the transaction
+    const user = await User.findOne({ _id: userId }).session(session);
+    const booking = await Booking.findOne({ _id: bookingId }).session(session);
+
+    if (!user || !booking) {
+      await session.abortTransaction();
+      session.endSession();
+      res.status(404).json({ message: "User or Booking not found" });
+      return;
+    }
+
+    // Check if points were applied before
+    console.log("hello from this side");
+    if (booking.pointsUsed === 0) {
+      console.log("hello from this side", booking.pointsUsed);
+      await session.abortTransaction();
+      session.endSession();
+      res.status(400).json({ message: "No points applied to this booking" });
+      return;
+    }
+    console.log("hello from this side");
+    const pointsToRefund = booking.pointsUsed;
+    console.log("hello from this side", pointsToRefund);
+
+    // Refund points to the user
+    const updatedUser = await User.updateOne(
+      { _id: userId },
+      { $inc: { points: pointsToRefund } }, // Refund points
+      { session }
+    );
+
+    if (updatedUser.modifiedCount === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      res.status(500).json({ message: "Failed to refund points" });
+      return;
+    }
+
+    // Reset booking's pointsUsed and recalculate final price
+    booking.finalPrice += pointsToRefund;
+    booking.pointsUsed = 0;
+    await booking.save({ session });
+
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    sendResponse(res, 200, "Points removed successfully", {
+      refundedPoints: pointsToRefund,
+      newFinalPrice: booking.finalPrice,
+      userPoints: user.points + pointsToRefund, // Updated balance
+    });
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    next(new ErrorHandler(error.message, 500));
+  }
+};
