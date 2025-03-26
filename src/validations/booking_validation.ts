@@ -3,7 +3,7 @@ import { objectIdSchema } from "../utils/helper";
 
 export const createBookingSchema = z.object({
   date: z.string().min(1, "Date is required"),
-  duration: z.number().min(1, "Duration must be at least 1 minute"),
+  duration: z.number().min(1, "Duration must be at least 1 minute").optional(),
   start_time: z.string().min(1, "Start time is required"),
   providersList: z
     .array(z.string())
@@ -24,7 +24,7 @@ export const updateBookingSchema = z.object({
     }),
   }),
   bookingId: z.string(),
-  pointsUsed: z.string(),
+  pointsUsed: z.number(),
   modeOfPayment: z.enum(["cash", "net-banking"]),
   finalPrice: z.number(),
 });
