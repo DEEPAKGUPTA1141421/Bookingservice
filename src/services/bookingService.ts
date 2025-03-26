@@ -291,7 +291,7 @@ const ChangeBitOfProvider = async (
   date: Date
 ) => {
   try {
-    const aviliblity = await ServiceProviderAvailability.find(
+    const aviliblity:any = await ServiceProviderAvailability.find(
       {
         provider: providerId,
         is_active: true,
