@@ -23,7 +23,7 @@ export interface IPromoCode extends IBaseSchema {
   min_card_txn_value?: number;
   period?: "weekly" | "monthly" | "yearly";
   limit_per_period?: number;
-  typeofPromoCode: "refer";
+  typeofPromoCode: "refer"| "direct";
   referId: Types.ObjectId;
 }
 
@@ -81,7 +81,7 @@ const PromoCodeSchema = new Schema<IPromoCode>(
         required: true,
       },
     ],
-    typeofPromoCode: { type: String, default: "refer" },
+    typeofPromoCode: { type: String, default: "direct" },
     referId: { type: Schema.Types.ObjectId, ref: "User" },
     // ✅ Move validate inside the array definition
     code: { type: String, required: true, unique: true }, // Promo code string
