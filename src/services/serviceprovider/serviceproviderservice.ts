@@ -144,7 +144,7 @@ export const createAvailabilityservice = async (
       data;
 
     // Fetch service IDs for the provider
-    let serviceALLId = await ServiceProvider.findById(providerId, {
+    let serviceALLId:any = await ServiceProvider.findById(providerId, {
       actualService: 1,
     }).lean();
     serviceALLId = serviceALLId?.actualService;
@@ -259,7 +259,7 @@ export const UpdateAvailabilityService = async (
     const obj = { status: "updated" };
 
     // Fetch service provider details
-    const serviceALLId = await ServiceProvider.findById(providerId, {
+    const serviceALLId:any = await ServiceProvider.findById(providerId, {
       serviceId: 1,
     }).lean();
 
@@ -271,7 +271,7 @@ export const UpdateAvailabilityService = async (
       throw new ErrorHandler("Invalid provider or no associated services", 404);
     }
 
-    const serviceIds = serviceALLId.serviceId.map((id) => id.toString());
+    const serviceIds = serviceALLId.serviceId.map((id:any) => id.toString());
 
     // Check if availability exists
     const existingAvailability = await ServiceProviderAvailability.findOne({
@@ -428,7 +428,7 @@ export const getNearbyServiceProviders = async (
   const timeIndex = getIndex(currentTime);
   const serviceOption = await ServiceOption.find({
     actualService: convertStringToObjectId(serviceId),
-  });
+  }).lean();
   console.log("provider length", providerAvailabilities.length);
   if (!providerAvailabilities.length) {
   } else {
@@ -449,14 +449,14 @@ export const getNearbyServiceProviders = async (
           console.log("yes null value");
           availableDurations.push({
             serviceoption: {
-              ...serviceOption[j]._doc,
+              ...serviceOption[j],
               providerId: providerAvailabilities[i].provider.toString(),
             },
           }); // Convert slots to minutes
         } else {
           availableDurations.push({
             serviceoption: {
-              ...serviceOption[j]._doc,
+              ...serviceOption[j],
               providerId: null,
             },
           }); // Convert slots to minutes
