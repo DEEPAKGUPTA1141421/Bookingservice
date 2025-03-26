@@ -25,8 +25,17 @@ export const createServiceOptionController = async (req: Request, res: Response,
     const validation = createServiceOptionSchema.safeParse({ ...req.body, images: imageUrls });
     if (!validation.success) return next(new ErrorHandler(validation.error.errors[0].message, 400));
 
-    const { actualService, name, price, discount_price, duration, description, service_provider, images } = validation.data;
-    const response = await createServiceOption(actualService, name, price, discount_price, duration, description, service_provider, images, next);
+    const {
+      actualService,
+      name,
+      price,
+      discount_price,
+      duration,
+      description,
+      images,
+      discount_type,
+    } = validation.data;
+    const response = await createServiceOption(actualService, name, price, discount_price, duration, description, images,discount_type, next);
     if (response) sendResponse(res, 201, "Service Option Created Successfully", response);
   } catch (error: any) {
     next(new ErrorHandler(error.message, 500));
