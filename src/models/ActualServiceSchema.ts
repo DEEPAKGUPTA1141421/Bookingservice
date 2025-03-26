@@ -2,7 +2,7 @@ import { IBaseSchema } from "../utils/GlobalTypescript";
 import { Schema, model, Types } from "mongoose";
 
 // ✅ Define Interface for ServiceOption
-interface IServiceOption extends IBaseSchema {
+export interface IServiceOption extends IBaseSchema {
   actualService: Types.ObjectId; // FK to ActualService
   name: string; // Option Name
   price: number; // Price for this option
@@ -13,6 +13,7 @@ interface IServiceOption extends IBaseSchema {
   images?: string[]; // Array of image URLs
   rating?: number; // Default rating
   discount_type: "flat" | "percent";
+  providerIds?: string[];
 }
 
 interface IActualService extends IBaseSchema {
