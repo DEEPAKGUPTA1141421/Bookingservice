@@ -13,11 +13,12 @@ export const createServiceOption = async (
   discount_price: number | undefined,
   duration: number,
   description: string | undefined,
-  service_provider: string,
   images: string[],
+  discount_type: string,
   next: NextFunction
 ) => {
   try {
+    console.log("Crossing Validation", discount_type);
     const newServiceOption = await ServiceOption.create({
       actualService,
       name,
@@ -25,8 +26,8 @@ export const createServiceOption = async (
       discount_price,
       duration,
       description,
-      service_provider,
       images,
+      discount_type,
     });
     if (newServiceOption) {
       return { id: newServiceOption._id };
