@@ -11,7 +11,7 @@ export const createServiceOption = async (
   name: string,
   price: number,
   discount_price: number | undefined,
-  duration: number,
+  duration: number | undefined,
   description: string | undefined,
   images: string[],
   discount_type: string,
