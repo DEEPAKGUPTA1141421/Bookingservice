@@ -12,7 +12,7 @@ admin.initializeApp({
 
 // Function to send a notification to a device
 async function sendNotification(token:any, title:any, body:any) {
-  const message = {
+  const message:any = {
     notification: {
       title,
       body,
