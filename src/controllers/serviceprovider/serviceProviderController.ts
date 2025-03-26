@@ -35,7 +35,7 @@ import { Booking } from "../../models/BookingSchema";
 import { checkConsecutive, getIndex } from "../../services/slotService";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import mongoose from "mongoose";
-import { ServiceOption } from "../../models/ActualServiceSchema";
+import { IServiceOption, ServiceOption } from "../../models/ActualServiceSchema";
 import { IRequest } from "../../middleware/authorised";
 import ServiceProvider from "../../models/ServiceProviderSchema ";
 import { createRedisClient } from "../../config/redisCache";
@@ -431,14 +431,18 @@ export const getProvidersWithinRadius = async (
     const timeIndex = getIndex(currentTime);
 
     // Map service options to provider IDs
-    let serviceOptionsMap = {};
+    let serviceOptionsMap: Record<
+      string,
+      IServiceOption & { providerIds: string[] }
+    > = {};
 
     for (let serviceOption of serviceOptions) {
-      serviceOptionsMap[serviceOption._id] = {
+      serviceOptionsMap[serviceOption._id.toString()] = {
         ...serviceOption,
         providerIds: [],
-      };
+      } as IServiceOption & { providerIds: string[] };
     }
+
 
     for (let provider of providerAvailabilities) {
       for (let serviceOption of serviceOptions) {
@@ -448,7 +452,7 @@ export const getProvidersWithinRadius = async (
           checkConsecutive(provider.available_bit, timeIndex, requiredSlots)
         ) {
           console.log("Slot available for provider:", provider.provider);
-          serviceOptionsMap[serviceOption._id].providerIds.push(
+          serviceOptionsMap[serviceOption._id.toString()].providerIds.push(
             provider.provider.toString()
           );
         }
@@ -705,14 +709,20 @@ export const genericOptions = async (
     const timeIndex = getIndex(currentTime);
 
     // Organize data: Map service options to provider IDs where checkConsecutive() is true
-    let serviceOptionsMap = {};
+    let serviceOptionsMap: Record<
+      string,
+      IServiceOption & { providerIds: string[] }
+    > = {};
 
     for (let serviceOption of serviceOptions) {
-      serviceOptionsMap[serviceOption._id] = {
+      serviceOptionsMap[serviceOption._id.toString()] = {
         ...serviceOption,
         providerIds: [],
-      };
+      } as IServiceOption & { providerIds: string[] };
     }
+
+
+
 
     for (let provider of providerAvailabilities) {
       for (let serviceOption of serviceOptions) {
@@ -722,7 +732,7 @@ export const genericOptions = async (
           checkConsecutive(provider.available_bit, timeIndex, requiredSlots)
         ) {
           console.log("true");
-          serviceOptionsMap[serviceOption._id].providerIds.push(
+          serviceOptionsMap[serviceOption._id.toString()].providerIds.push(
             provider.provider.toString()
           );
         }
