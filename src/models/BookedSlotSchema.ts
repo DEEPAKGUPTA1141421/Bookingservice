@@ -8,7 +8,7 @@ interface IBookedSlot extends IBaseSchema {
   date: Date; // Date of booking
   start_time: Date; // Start time of booking
   end_time: Date; // End time of booking
-  slotTiming: number;
+  slotTiming?: number;
   serviceoption: Types.ObjectId;
 }
 
@@ -34,7 +34,7 @@ const BookedSlotSchema = new Schema<IBookedSlot>(
     },
     date: { type: Date, required: true },
     start_time: { type: Date, required: true },
-    slotTiming: { type: Number, required: true },
+    slotTiming: { type: Number },
   },
   { timestamps: true }
 );
