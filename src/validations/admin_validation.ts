@@ -122,14 +122,13 @@ export const createServiceOptionSchema = z.object({
     (val) => (val ? Number(val) : undefined),
     z.number().optional()
   ),
-  duration: z.preprocess(
-    (val) => Number(val),
-    z.number().min(1, { message: "Duration must be at least 1 minute" })
-  ),
+  discount_type:z.enum(["flat","percent"]),
+  duration: z
+    .preprocess(
+      (val) => Number(val),
+      z.number().min(1, { message: "Duration must be at least 1 minute" })
+    ).optional(),
   description: z.string().optional(),
-  service_provider: z
-    .string()
-    .min(8, { message: "Invalid Service Provider ID" }),
   images: z
     .array(z.string().url({ message: "Each image must be a valid URL" }))
     .nonempty({ message: "At least one image is required" }),
