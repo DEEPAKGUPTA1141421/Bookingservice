@@ -145,9 +145,9 @@ export const createAvailabilityservice = async (
 
     // Fetch service IDs for the provider
     let serviceALLId = await ServiceProvider.findById(providerId, {
-      ServiceId: 1,
+      actualService: 1,
     }).lean();
-    serviceALLId = serviceALLId?.ServiceId;
+    serviceALLId = serviceALLId?.actualService;
     console.log("serviceALLId", serviceALLId);
     if (!serviceALLId || !Array.isArray(serviceALLId)) {
       throw new ErrorHandler(
@@ -194,50 +194,54 @@ export const createAvailabilityservice = async (
       console.log("status check", obj, isAdd);
       return obj;
     } else {
-        const availabilities = [];
-        for (let i = 0; i < 4; i++) { // Today + next 3 days
-          const date = new Date();
-          date.setUTCDate(date.getUTCDate() + i); // Move to the next day
-          date.setUTCHours(0, 0, 0, 0); // Ensure time is set to 00:00 UTC
-      
-          const formattedDate = date.toISOString(); // Format to "2025-03-13T00:00:00.000+00:00"
-      
-          const newAvailability = new ServiceProviderAvailability({
-            provider: providerId,
-            service: serviceALLId, // Ensure it's an array
-            date: formattedDate, // Use the correct format
-            start_time,
-            end_time,
-            is_active: true,
-          });
-          availabilities.push(newAvailability);
-        }
-       const insertreponse=await ServiceProviderAvailability.insertMany(availabilities);
-      console.log("Availability created for today and next 3 days in ISO format.");
+      const availabilities = [];
+      for (let i = 0; i < 4; i++) {
+        // Today + next 3 days
+        const date = new Date();
+        date.setUTCDate(date.getUTCDate() + i); // Move to the next day
+        date.setUTCHours(0, 0, 0, 0); // Ensure time is set to 00:00 UTC
+
+        const formattedDate = date.toISOString(); // Format to "2025-03-13T00:00:00.000+00:00"
+
+        const newAvailability = new ServiceProviderAvailability({
+          provider: providerId,
+          service: serviceALLId, // Ensure it's an array
+          date: formattedDate, // Use the correct format
+          start_time,
+          end_time,
+          is_active: true,
+        });
+        availabilities.push(newAvailability);
+      }
+      const insertreponse = await ServiceProviderAvailability.insertMany(
+        availabilities
+      );
+      console.log(
+        "Availability created for today and next 3 days in ISO format."
+      );
       if (!insertreponse) {
         obj.status = "failed";
         return obj;
       }
       console.log("New Availability Created", insertreponse);
-      };
-      for (const serviceId of serviceALLId) {
-        const currobj = await addServiceProviderToRedis(
-          serviceId.toString(), // Convert ObjectId to string if needed
-          providerId,
-          latitude,
-          longitude
-        );
+    }
+    for (const serviceId of serviceALLId) {
+      const currobj = await addServiceProviderToRedis(
+        serviceId.toString(), // Convert ObjectId to string if needed
+        providerId,
+        latitude,
+        longitude
+      );
 
-        if (!currobj) {
-          isAdd = false;
-        }
+      if (!currobj) {
+        isAdd = false;
       }
-      console.log("I am Here");
-      obj.status = isAdd ? "created" : "failed_to_add_in_redis";
-      console.log("status check", obj, isAdd);
-      return obj;
-  }
-  catch (error: any) {
+    }
+    console.log("I am Here");
+    obj.status = isAdd ? "created" : "failed_to_add_in_redis";
+    console.log("status check", obj, isAdd);
+    return obj;
+  } catch (error: any) {
     throw new ErrorHandler(error.message || "Server Error", 501);
   }
 };
@@ -387,17 +391,9 @@ export const getNearbyServiceProviders = async (
   serviceId: string,
   date: string
 ) => {
+  console.log("date i am getting at service", date);
   const dateOnly = new Date(date);
   dateOnly.setUTCHours(0, 0, 0, 0); // Normalize date to midnight UTC
-  console.log("datecheck",dateOnly,date);
-  console.log(
-    "getNearbyServiceProviders",
-    latitude,
-    longitude,
-    radius,
-    serviceId,
-    date
-  );
   const serviceProviders = await ServiceProvider.aggregate([
     {
       $geoNear: {
@@ -406,23 +402,23 @@ export const getNearbyServiceProviders = async (
           coordinates: [latitude, longitude], // Correct order: [longitude, latitude]
         },
         distanceField: "distance",
-        query: { actualService: convertStringToObjectId(serviceId) },
+        query: { actualService: { $in: [convertStringToObjectId(serviceId)] } },
         maxDistance: radius, // Radius in meters
         includeLocs: "dist.location",
         spherical: true,
       },
     },
   ]);
-  console.log(serviceProviders);
+  console.log("wow serviceProviders", serviceProviders);
   const providerIds = serviceProviders.map((provider) => provider._id);
-  console.log(providerIds);
+  console.log("serviceProviders 2",providerIds);
   const providerAvailabilities = await ServiceProviderAvailability.find(
     {
       provider: { $in: providerIds },
+      date: dateOnly,
     },
     { provider: 1, available_bit: 1 }
   ).lean();
-  console.log(providerAvailabilities);
   let returnProviders: {
     providerId: string;
     availableDurations: Object[];
@@ -433,7 +429,7 @@ export const getNearbyServiceProviders = async (
   const serviceOption = await ServiceOption.find({
     actualService: convertStringToObjectId(serviceId),
   });
-
+  console.log("provider length", providerAvailabilities.length);
   if (!providerAvailabilities.length) {
   } else {
     for (let i = 0; i < providerAvailabilities.length; i++) {
@@ -450,9 +446,19 @@ export const getNearbyServiceProviders = async (
             d
           )
         ) {
+          console.log("yes null value");
           availableDurations.push({
-            duration: d * 15,
-            serviceoption: serviceOption[j],
+            serviceoption: {
+              ...serviceOption[j]._doc,
+              providerId: providerAvailabilities[i].provider.toString(),
+            },
+          }); // Convert slots to minutes
+        } else {
+          availableDurations.push({
+            serviceoption: {
+              ...serviceOption[j]._doc,
+              providerId: null,
+            },
           }); // Convert slots to minutes
         }
       }
@@ -465,7 +471,7 @@ export const getNearbyServiceProviders = async (
       }
     }
   }
-
+  console.log("last returnProviders", returnProviders);
   return returnProviders;
 };
 
