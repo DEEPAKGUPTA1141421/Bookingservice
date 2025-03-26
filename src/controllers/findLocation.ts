@@ -68,7 +68,7 @@ export const findProviders = async (
         },
       },
       ...(serviceId && {
-        actualService: new mongoose.Types.ObjectId(serviceId),
+        actualService: { $in: new mongoose.Types.ObjectId(serviceId) },
       }),
     });
 
