@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import { WebSocket, WebSocketServer } from "ws";
-import { Kafka } from "kafkajs";
 import cookieParser from "cookie-parser";
 import locationRoutes from "./routes/locationRoutes";
 import otpRoutes from "./routes/authRoutes";
