@@ -158,14 +158,8 @@ export const createAvailabilityservice = async (
 
     console.log("in Service", serviceALLId);
 
-    let dateOnly = new Date(date);
-    dateOnly.setHours(0, 0, 0, 0); // Midnight in local time (IST)
-
-    // Convert to UTC manually
-    const istOffset = 5.5 * 60 * 60 * 1000; // +5:30 hours in milliseconds
-    dateOnly = new Date(dateOnly.getTime() - istOffset); // Adjust back to UTC
-
-    console.log("Final UTC Date to store:", dateOnly.toISOString());
+    let dateOnly = new Date();
+    dateOnly.setMinutes(dateOnly.getMinutes() + 330);
 
     // Check if availability already exists
     const existingAvailability = await ServiceProviderAvailability.findOne({
@@ -198,15 +192,13 @@ export const createAvailabilityservice = async (
       for (let i = 0; i < 4; i++) {
         // Today + next 3 days
         const date = new Date();
-        date.setUTCDate(date.getUTCDate() + i); // Move to the next day
-        date.setUTCHours(0, 0, 0, 0); // Ensure time is set to 00:00 UTC
-
-        const formattedDate = date.toISOString(); // Format to "2025-03-13T00:00:00.000+00:00"
+        date.setMinutes(date.getMinutes() + 330);
+        date.setDate(date.getDate() + i); // Move to the next day
 
         const newAvailability = new ServiceProviderAvailability({
           provider: providerId,
           service: serviceALLId, // Ensure it's an array
-          date: formattedDate, // Use the correct format
+          date: date, // Use the correct format
           start_time,
           end_time,
           is_active: true,
