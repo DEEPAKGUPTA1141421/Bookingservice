@@ -35,7 +35,10 @@ import { Booking } from "../../models/BookingSchema";
 import { checkConsecutive, getIndex } from "../../services/slotService";
 import { ServiceProviderAvailability } from "../../models/ServiceProviderAvailabilitySchema";
 import mongoose from "mongoose";
-import { IServiceOption, ServiceOption } from "../../models/ActualServiceSchema";
+import {
+  IServiceOption,
+  ServiceOption,
+} from "../../models/ActualServiceSchema";
 import { IRequest } from "../../middleware/authorised";
 import ServiceProvider from "../../models/ServiceProviderSchema ";
 import { createRedisClient } from "../../config/redisCache";
@@ -127,7 +130,7 @@ export const updateServiceProvider = async (
       next(new ErrorHandler("validation failed", 400));
       return;
     }
-    const providerId:any = req.user?._id;
+    const providerId: any = req.user?._id;
     console.log("providerId", providerId);
     const response = await updateServiceProviderService(
       providerId,
@@ -443,7 +446,6 @@ export const getProvidersWithinRadius = async (
       } as IServiceOption & { providerIds: string[] };
     }
 
-
     for (let provider of providerAvailabilities) {
       for (let serviceOption of serviceOptions) {
         let requiredSlots = serviceOption.duration / 15;
@@ -504,7 +506,7 @@ const checkAvailableTimingSlots = async (
         },
       },
     ]);
-    console.log("serviceProviders",serviceProviders);
+    console.log("serviceProviders", serviceProviders);
     const providerIds = serviceProviders.map(
       (provider) => new mongoose.Types.ObjectId(provider._id)
     );
@@ -659,7 +661,7 @@ export const genericOptions = async (
     }
 
     const dateOnly = new Date();
-    dateOnly.setUTCHours(0, 0, 0, 0); // Normalize date to midnight UTC
+    dateOnly.setMinutes(dateOnly.getMinutes()+330);
 
     // Get nearby service providers
     const serviceProviders = await ServiceProvider.aggregate([
@@ -680,17 +682,30 @@ export const genericOptions = async (
     ]);
     console.log("serviceProviders", serviceProviders);
     const providerIds = serviceProviders.map((provider) => provider._id);
+    console.log("providerIds", providerIds,dateOnly);
 
     // Fetch provider availability
+    const startOfDay = new Date(dateOnly);
+    startOfDay.setUTCHours(0, 0, 0, 0); // Set to 00:00:00 UTC
+
+    const endOfDay = new Date(dateOnly);
+    endOfDay.setUTCHours(23, 59, 59, 999); // Set to 23:59:59 UTC
+
     const providerAvailabilities = await ServiceProviderAvailability.find(
-      { provider: { $in: providerIds }, date: dateOnly },
+      {
+        provider: { $in: providerIds },
+        date: { $gte: startOfDay, $lt: endOfDay }, // Match only the date part
+      },
       { provider: 1, available_bit: 1 }
     ).lean();
 
+
     const serviceOptions = await ServiceOption.find({
       actualService: convertStringToObjectId(serviceId),
-    }).lean();
-
+    })
+      .sort({ duration: 1 })
+      .lean();
+    
     if (!providerAvailabilities.length) {
       res.status(200).json({
         success: true,
@@ -720,9 +735,6 @@ export const genericOptions = async (
         providerIds: [],
       } as IServiceOption & { providerIds: string[] };
     }
-
-
-
 
     for (let provider of providerAvailabilities) {
       for (let serviceOption of serviceOptions) {
