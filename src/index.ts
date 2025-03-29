@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import cluster from "cluster";
+import os from "os";
 import { WebSocket, WebSocketServer } from "ws";
 import cookieParser from "cookie-parser";
 import locationRoutes from "./routes/locationRoutes";
@@ -8,7 +10,7 @@ import AdminRoutes from "./routes/adminRoute";
 import cartRoutes from "./routes/cartRoutes";
 import ServiceRoutes from "./routes/serviceproviderRoute";
 import findProvider from "./routes/findProvider";
-import promocode from "./routes/promoCodeRoutes"
+import promocode from "./routes/promoCodeRoutes";
 import { errorMiddleware } from "./config/CustomErrorhandler";
 import { isAuthenticated } from "./middleware/authorised";
 import BookingRoutes from "./routes/bookingRoutes";
@@ -18,18 +20,16 @@ import reviewRoutes from "./routes/reviewRoutes";
 import PayemntRoutes from "./routes/paymentRoute";
 import { sendRegistrationEmail } from "./config/mailer";
 import { createRedisClient } from "./config/redisCache";
-import ServiceProvider, { ServiceProviderSchema } from "./models/ServiceProviderSchema ";
+import ServiceProvider, {
+  ServiceProviderSchema,
+} from "./models/ServiceProviderSchema ";
 import { getAddressFromLatLng } from "./services/locationservice";
 import { getAccessToken } from "./services/FcmService";
 import { ServiceOption } from "./models/ActualServiceSchema";
-// Kafka producer setup
-// const kafka = new Kafka({
-//   clientId: "my-app",
-//   brokers: [process.env.KAFKA_BROKER || "localhost:9092"],
-// });
-// const producer = kafka.producer();
 
-// Express app setup
+const numCPUs = os.cpus().length; // Number of CPU cores
+
+// Create the Express app
 const app = express();
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -46,6 +46,8 @@ app.use((req, res, next) => {
 });
 
 const port = 4000;
+export let connectedProviders:any=null;
+export let wss:any=null
 connectDb();
 
 // Test endpoint
@@ -55,11 +57,12 @@ app.post("/send-notification", async (req, res) => {
     const result = await getAccessToken();
     // You can use the access token here to make any API calls or send notifications
     res.json({ success: true, message: "Notification sent", result });
-  } catch (error:any) {
+  } catch (error: any) {
     console.error("Error sending notification:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
 app.get("/test", async (req, res, next): Promise<void> => {
   try {
     const redis = createRedisClient();
@@ -91,9 +94,10 @@ app.get("/test", async (req, res, next): Promise<void> => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 app.post("/ready", async (req, res, next): Promise<void> => {
   try {
-    const {latitude,longitude}=req.body
+    const { latitude, longitude } = req.body;
     const result = await getAddressFromLatLng(latitude, longitude);
     res.status(200).json({ success: true, result });
   } catch (error: any) {
@@ -101,11 +105,12 @@ app.post("/ready", async (req, res, next): Promise<void> => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 // Root endpoint
 app.get("/", async (req, res) => {
   try {
     res.status(200).json({
-      success:true,
+      success: true,
       message: "Service options created successfully!",
     });
   } catch (error) {
@@ -113,7 +118,6 @@ app.get("/", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 
 // API Routes
 app.use("/auth", otpRoutes);
@@ -126,73 +130,76 @@ app.use("/booking", BookingRoutes);
 app.use("/slots", slotRoutes);
 app.use("/review", reviewRoutes);
 app.use("/payment", PayemntRoutes);
-app.use("/promocode",promocode)
-
-// Kafka message producer function
-// async function main(topic: string, message: any) {
-//   await producer.connect();
-//   await producer.send({
-//     topic: topic,
-//     messages: [message],
-//   });
-// }
+app.use("/promocode", promocode);
 
 // Error handling middleware
 app.use(errorMiddleware);
 
-// Create the HTTP server for Express
-const server = app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+if (cluster.isMaster) {
+  // Master process: Fork worker processes for each CPU core
+  console.log(`Master process started, forking ${numCPUs} workers`);
 
-// WebSocket server setup
-export const wss = new WebSocketServer({ server: server });
-// Store connected providers
-export const connectedProviders = new Map<string, WebSocket>();
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork(); // Create a new worker for each CPU core
+  }
 
-wss.on("connection", async (ws: any, req) => {
-  console.log("📡 New WebSocket Connection");
-
-  ws.on("message", async (message: any) => {
-    // Your logic here
-    const { type } = JSON.parse(message);
-    if (type == "Booking-Confirmed") {
-      console.log("ws", ws);
-      const { providerId, userId } = JSON.parse(message);
-      const result1 = await createRedisClient().set(
-        `socket:${userId}`,
-        providerId
-      );
-      const result2 = await createRedisClient().set(
-        `socket:${providerId}`,
-        userId
-      );
-      console.log("Set Provider and User In Redis", result1, result2);
-    }
-    else if (type == "First-Connection") {
-      console.log("Excahnge The ids");
-      const { id } = JSON.parse(message);
-      connectedProviders.set(id, ws);
-    }
-    else if (type=="Realtime-Update") {
-      const { id,latitude,longitude } = JSON.parse(message);
-      const myWebSocket = connectedProviders.get(id);
-      const otherId = await createRedisClient().get(`socket:${id}`);
-      if (!otherId) {
-        console.log("Connection is unavailable");
-        return;
-      }
-      const otherWebSocket = connectedProviders.get(otherId);
-      if (otherWebSocket && otherWebSocket.readyState === WebSocket.OPEN) {
-        otherWebSocket.send(
-          JSON.stringify({
-            type: "get-Real-Time-Update",
-            id: id,
-            latitude: latitude,
-            longitude: longitude,
-          })
-        );
-      }
-    }
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`Worker ${worker.process.pid} died`);
+    cluster.fork(); // Fork a new worker if one dies
   });
-});
+} else {
+  // Worker processes (handles requests)
+  const server = app.listen(port, () => {
+    console.log(`Worker ${process.pid} is running on http://localhost:${port}`);
+  });
+
+  // WebSocket server setup
+  wss = new WebSocketServer({ server: server });
+  // Store connected providers
+  connectedProviders = new Map<string, WebSocket>();
+
+  wss.on("connection", async (ws: any, req:any) => {
+    console.log("📡 New WebSocket Connection");
+
+    ws.on("message", async (message: any) => {
+      // Your logic here
+      const { type } = JSON.parse(message);
+      if (type == "Booking-Confirmed") {
+        console.log("ws", ws);
+        const { providerId, userId } = JSON.parse(message);
+        const result1 = await createRedisClient().set(
+          `socket:${userId}`,
+          providerId
+        );
+        const result2 = await createRedisClient().set(
+          `socket:${providerId}`,
+          userId
+        );
+        console.log("Set Provider and User In Redis", result1, result2);
+      } else if (type == "First-Connection") {
+        console.log("Exchange The ids");
+        const { id } = JSON.parse(message);
+        connectedProviders.set(id, ws);
+      } else if (type == "Realtime-Update") {
+        const { id, latitude, longitude } = JSON.parse(message);
+        const myWebSocket = connectedProviders.get(id);
+        const otherId = await createRedisClient().get(`socket:${id}`);
+        if (!otherId) {
+          console.log("Connection is unavailable");
+          return;
+        }
+        const otherWebSocket = connectedProviders.get(otherId);
+        if (otherWebSocket && otherWebSocket.readyState === WebSocket.OPEN) {
+          otherWebSocket.send(
+            JSON.stringify({
+              type: "get-Real-Time-Update",
+              id: id,
+              latitude: latitude,
+              longitude: longitude,
+            })
+          );
+        }
+      }
+    });
+  });
+}
