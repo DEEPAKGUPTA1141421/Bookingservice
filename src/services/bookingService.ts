@@ -134,8 +134,11 @@ export const updateBookingService = async (response: UpdateBookingParams) => {
     response;
 
   // Find the booking by ID
-  const booking = await Booking.findById(bookingId).populate("bookingSlot_id");
+  const booking = await Booking.findById(bookingId);
+  console.log("check status",booking?.status)
+  const res=await acceptBookingService(bookingId);
   if (!booking) {
+    console.log("log Booking not found");
     throw new ErrorHandler("Booking not found", 404);
   }
 
@@ -217,14 +220,12 @@ export const acceptBookingService = async (bookingId: string) => {
   try {
     // ✅ Fetch booking with LOCK for updates
     const booking = await Booking.findOne({
-      _id: bookingId,
-      status: { $eq: "pending" }, // Status should not be "confirmed"
+      _id: bookingId, // Status should not be "confirmed"
     }).session(session);
     if (!booking) throw new ErrorHandler("Booking not found", 404);
 
     const bookedSlot = await BookedSlot.findOne({
       _id: booking.bookingSlot_id,
-      status: { $eq: "initiated" },
     }).session(session);
     if (!bookedSlot) throw new ErrorHandler("Booked slot not found", 404);
 
@@ -239,15 +240,18 @@ export const acceptBookingService = async (bookingId: string) => {
     // ✅ Update booking status to confirmed
     booking.status = "confirmed";
     await booking.save({ session });
+    console.log("confirmed done");
 
     // ✅ Update ServiceProviderAvailability (set available_bit to 0)
     let index: string | number = convertToHHMM(
-      bookedSlot.start_time.toDateString()
+      bookedSlot.start_time.toISOString()
     );
     if (!bookedSlot.slotTiming) {
       return { success: false, message: "Booking Failed" };
     }
+    console.log("index before", index);
     index = getIndex(index);
+    console.log("index access", index);
     const response = await ChangeBitOfProvider(
       providerId,
       index,
@@ -257,7 +261,7 @@ export const acceptBookingService = async (bookingId: string) => {
     if (!response) {
       await session.abortTransaction(); // Rollback on error
       session.endSession();
-      throw new ErrorHandler("Internal Server Error", 500);
+      return { success: false, message: "Booking confirmed", providerId };
     }
 
     // ✅ Commit transaction (if everything is successful)
@@ -291,32 +295,47 @@ const ChangeBitOfProvider = async (
   date: Date
 ) => {
   try {
-    const aviliblity:any = await ServiceProviderAvailability.find(
-      {
-        provider: providerId,
-        is_active: true,
-        date: date,
-      },
-      { available_bit: 1 }
-    ).lean();
-    if (!aviliblity || aviliblity.available_bit) {
+    const aviliblity = await ServiceProviderAvailability.findOne({
+      provider: providerId,
+      is_active: true,
+      date: date,
+    });
+
+    console.log("Main Logic", aviliblity, timeIndex, numberOfSlots);
+
+    if (!aviliblity || !aviliblity.available_bit) {
       return false;
     }
-    let bitforchange = aviliblity.available_bit;
+
+    console.log("Main Logic 2", aviliblity);
+
+    let bitforchange = aviliblity.available_bit.split("");
+    console.log("Main Logic 3", typeof bitforchange, timeIndex + numberOfSlots);
+
     for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
       bitforchange[i] = "0";
     }
-    aviliblity.available_bit = bitforchange;
-    await aviliblity.save();
+
+    console.log("Main Logic 4", bitforchange);
+    aviliblity.available_bit = bitforchange.join("");
+
+    await aviliblity.save(); // Save updated document
+
+    console.log("Main Logic 5 Done");
     return true;
-  } catch {}
+  } catch (error) {
+    console.error("Error:", error);
+    return false;
+  }
 };
 
+
 export const checkConsecutive = (
-  available_bit: string,
+  available_bit: any,
   timeIndex: number,
   numberOfSlots: number
 ): boolean => {
+  available_bit=available_bit.split("");
   console.log("checkconsucutive", available_bit, timeIndex, numberOfSlots);
   if (timeIndex < 0 || timeIndex + numberOfSlots > available_bit.length)
     return false;
@@ -329,6 +348,7 @@ export const checkConsecutive = (
   // Check if all required slots are available
   for (let i = timeIndex; i < timeIndex + numberOfSlots; i++) {
     if (available_bit[i] === "0") {
+      console.log("false condition get hit");
       return false; // Slot already booked
     }
   }
