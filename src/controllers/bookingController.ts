@@ -74,16 +74,19 @@ export const createBooking = async (
       actualService,
       isScheduled,
     } = req.body;
-
-    const datefornow = new Date(start_time);
-    const istDate = new Date(datefornow.getTime() + 5.5 * 60 * 60 * 1000);
-    const istISOString = istDate.toISOString().replace("Z", "+05:30");
+    console.log("isScheduled", isScheduled);
+    if (isScheduled) {
+      console.log("yes Scheduled", isScheduled)
+      start_time = new Date(start_time);
+      start_time.setMinutes(start_time.getMinutes() + 330);
+      console.log("yes Scheduled", start_time);
+    }
     const booking = await createBookingService({
       userId,
       date,
       duration,
       serviceoption,
-      start_time: istDate,
+      start_time,
       providersList,
       actualService,
     });
@@ -115,7 +118,9 @@ export const getConfirmBooking = async (
     }
     BookingId = convertStringToObjectId(BookingId);
     console.log(BookingId, "vvvvvv");
-    const bookingdetails = await Booking.find({ _id: BookingId }).populate({
+    const bookingdetails = await Booking.find({ _id: BookingId })
+      .populate("user")
+      .populate({
       path: "bookingSlot_id",
       populate: [{ path: "serviceoption" }],
     });
@@ -197,29 +202,29 @@ export const getLiveOrdersOfProvider = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const providerId = convertStringToObjectId("67b1dd2e74cac7b6b9d8407d");
-     const now = new Date();
-     const fifteenMinutesAfterNow = new Date(now.getTime() + 15 * 60000);
-     
-     const liveOrders = await Booking.find({
-       providers: { $in: [providerId] }, // Match provider's orders
-       $expr: {
-         $and: [
-           { $lte: ["$start_time", fifteenMinutesAfterNow] }, // Show 15 min before start_time
-           {
-             $gte: [
-               { $add: ["$start_time", { $multiply: ["$slotTiming", 60000] }] },
-               now,
-             ],
-           }, // Keep showing until slot ends
-         ],
-       },
-     }).populate("Acutalservice serviceoption");
+    const providerId = req.user?._id
+    const todayDate = new Date();
+    todayDate.setMinutes(todayDate.getMinutes() + 330);
+    console.log("Searching for bookings on:", todayDate, providerId);
 
+    const nextBooking = await BookedSlot.findOne({
+      providers: { $in: providerId },
+      start_time: { $gte: todayDate },
+    })
+      .sort({ start_time: 1 })
+      .lean();
+    console.log("Searching for bookings on:", nextBooking);
+    const bookingdetails = await Booking.find({
+      bookingSlot_id: nextBooking?._id,
+    }).populate({
+      path: "bookingSlot_id",
+      populate: [{ path: "serviceoption" }],
+    });
+    console.log("Searching for bookings on:", bookingdetails);
     res.status(200).json({
       success: true,
       message: "live orders",
-      liveOrders,
+      nextBooking: bookingdetails,
     });
   } catch (error) {
     const err =
@@ -454,3 +459,5 @@ export const removeAppliedPoints = async (
     next(new ErrorHandler(error.message, 500));
   }
 };
+
+
