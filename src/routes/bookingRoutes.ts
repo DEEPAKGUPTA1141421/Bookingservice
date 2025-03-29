@@ -31,6 +31,6 @@ router.delete(
 router.post("/accept", acceptBooking);
 router.post("/apply-points",isAuthenticated, applyPoints);
 router.post("/remove-points", isAuthenticated, removeAppliedPoints);
-router.post("/live-order-provider",getLiveOrdersOfProvider);
+router.post("/live-order-provider",isAuthenticated,getLiveOrdersOfProvider);
 
 export default router;
