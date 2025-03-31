@@ -74,10 +74,10 @@ export const createBookingService = async ({
     ).lean();
 
     console.log("service layer", serviceoprtiondoc);
-    let allproviders;
+    let allproviders:any;
     const iseventBooking = await eventBooking(actualService);
     console.log("iseventBooking", iseventBooking);
-    if (iseventBooking?.event) {
+    if (iseventBooking?.event && latitude && longitude) {
       allproviders = await ServiceProvider.aggregate([
         {
           $geoNear: {
@@ -93,7 +93,7 @@ export const createBookingService = async ({
         },
       ]);
     }
-    let createobj = {
+    let createobj:any = {
       providers: iseventBooking.event ? allproviders : changeprovidersList,
       Acutalservice: actualService,
       serviceoption: convertStringToObjectId(serviceoption),
