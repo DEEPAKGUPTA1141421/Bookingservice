@@ -10,6 +10,7 @@ export const createBookingSchema = z.object({
     .min(1, "At least one provider must be selected"),
   serviceoption: z.string(),
   actualService: z.string(),
+  event:z.string().optional()
 });
 
 export const updateBookingSchema = z.object({
