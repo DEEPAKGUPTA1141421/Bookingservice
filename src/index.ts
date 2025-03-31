@@ -1,436 +1,204 @@
-import { Request, Response, NextFunction } from "express";
-import crypto from "crypto";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-import ErrorHandler from "../config/GlobalerrorHandler";
-import { sendResponse } from "../utils/responseHandler";
-import User, { IUser } from "../models/UserSchema";
-import Otp from "../models/OtpSchema";
-import { z } from "zod";
-import {
-  sendOtpSchema,
-  verifyOtpSchema,
-  editUserSchema,
-  aadhaarOtpSchema,
-  aadhaarSchema,
-  aadhaarOtpVerifySchema,
-} from "../validations/authcontroller_validation";
-import { CheckZodValidation, generateOtp } from "../utils/helper";
-import { IRequest } from "../middleware/authorised";
-import ServiceProvider from "../models/ServiceProviderSchema ";
-import { Admin } from "../models/AdminSchema";
+import express from "express";
+import cors from "cors";
+import cluster from "cluster";
+import os from "os";
+import { WebSocket, WebSocketServer } from "ws";
+import cookieParser from "cookie-parser";
+import locationRoutes from "./routes/locationRoutes";
+import otpRoutes from "./routes/authRoutes";
+import AdminRoutes from "./routes/adminRoute";
+import cartRoutes from "./routes/cartRoutes";
+import ServiceRoutes from "./routes/serviceproviderRoute";
+import findProvider from "./routes/findProvider";
+import promocode from "./routes/promoCodeRoutes";
+import { errorMiddleware } from "./config/CustomErrorhandler";
+import { isAuthenticated } from "./middleware/authorised";
+import BookingRoutes from "./routes/bookingRoutes";
+import { connectDb } from "./config/database";
+import slotRoutes from "./routes/slotRoutes";
+import reviewRoutes from "./routes/reviewRoutes";
+import PayemntRoutes from "./routes/paymentRoute";
+import { sendRegistrationEmail } from "./config/mailer";
+import { createRedisClient } from "./config/redisCache";
+import ServiceProvider, {
+  ServiceProviderSchema,
+} from "./models/ServiceProviderSchema ";
+import { getAddressFromLatLng } from "./services/locationservice";
+import { getAccessToken } from "./services/FcmService";
+import { ServiceOption } from "./models/ActualServiceSchema";
 
-dotenv.config();
+const numCPUs = os.cpus().length; // Number of CPU cores
+// Create the Express app
+const app = express();
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(cors());
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
-export const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "strict" as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-};
-const LOGOUT_COOKIE_OPTIONS = { ...COOKIE_OPTIONS, maxAge: 0 };
-export const generateToken = (userId: string) => {
-  const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
-  console.log("token", token);
-  return token;
-};
+// Middleware for setting Content-Security-Policy
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "connect-src 'self' ws://localhost:4000"
+  );
+  next();
+});
 
-export const sendOtp = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+const port = 4000;
+export let connectedProviders:any=null;
+export let wss:any=null
+connectDb();
+
+// Test endpoint
+app.post("/send-notification", async (req, res) => {
   try {
-    console.log("now orking");
-    let firsttimeuser = false;
-    const validation = CheckZodValidation(req.body, sendOtpSchema, next);
-    let { phone,user_type } = validation.data;
-    let role = "";
-    let user;
-    if (!user) {
-      user = await User.findOne({ phone });
-      if (user) role = "User";
-    }
-    if (!user) {
-      user = await ServiceProvider.findOne({ phone });
-      if (user) role = "ServiceProvider";
-    }
-    if (!user) {
-      user = await Admin.findOne({ phone });
-      if (user) role = "Admin";
-    }
-    const otp = generateOtp();
-    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    const typeOfOtp = user ? "login" : "sign_up";
-
-    if (!user) {
-      if (user_type == "User") {
-        user = new User({ phone });
-        user_type="User";
-        await user.save();
-        firsttimeuser = true;
-      } else{
-        user = new ServiceProvider({ phone });
-        user_type="ServiceProvider";
-        await user.save();
-        firsttimeuser = true;
-      }
-    }
-
-    await Otp.create({
-      user_id: user._id,
-      user_type: role || user_type,
-      otp_code: hashedOtp,
-      expires_at: expiresAt,
-      typeOfOtp,
-    });
-    // const response = await twilioService.sendSMS(phone,otp)
-    // console.log("response",response)
-    console.log(`✅ OTP for ${phone} (${typeOfOtp}):`, otp);
-    sendResponse(res, 200, "OTP sent successfully", {
-      isNewUser: !user,
-      phone: phone,
-      role: role,
-      firsttimeuser
-    });
-  } catch (error) {
-    const err = error as Error;
-    next(new ErrorHandler(err.message, 400));
-  }
-};
-
-export const verifyOtp = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    console.log("getting hit by client veriftotp");
-    const validation = CheckZodValidation(req.body, verifyOtpSchema, next);
-    const { phone, otp } = validation.data;
-    console.log("getting hit by client veriftotp", phone, otp);
-    let role = "";
-    let user;
-    if (!user) {
-      user = await User.findOne({ phone });
-      console.log("user me find", user);
-      if (user) role = "User";
-      console.log("user me find", role);
-    }
-    if (!user) {
-      console.log("provider me ", phone);
-      user = await ServiceProvider.findOne({ phone });
-      if (user) role = "ServiceProvider";
-      console.log("provider me ", user);
-    }
-    if (!user) {
-      user = await Admin.findOne({ phone });
-      if (user) role = "Admin";
-      console.log("admin me ", role);
-    }
-
-    if (!user) return next(new ErrorHandler("User not found", 404));
-    console.log("user", user._id);
-    const latestOtp = await Otp.findOne({
-      user_id: user._id,
-      user_type: role,
-      is_used: false,
-    }).sort({ createdAt: -1 });
-    if (!latestOtp || new Date(latestOtp.expires_at) < new Date())
-      return next(new ErrorHandler("OTP expired or invalid", 400));
-
-    const hashedInputOtp = crypto
-      .createHash("sha256")
-      .update(otp)
-      .digest("hex");
-    if (hashedInputOtp !== latestOtp.otp_code)
-      return next(new ErrorHandler("Invalid OTP", 400));
-
-    await Otp.updateOne({ _id: latestOtp._id }, { is_used: true });
-    if (latestOtp.user_type === "User") {
-      await User.updateOne({ _id: user._id }, { status: "verified" });
-    }
-
-    const token = generateToken(user._id.toString());
-    console.log("role", role);
-    sendResponse(res, 200, "OTP verified successfully", {
-      user: user,
-      token: token,
-      role: role,
-    });
-  } catch (error) {
-    const err = error as Error;
-    next(new ErrorHandler(err.message, 400));
-  }
-};
-
-export const logoutUser = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  try {
-    res.clearCookie("token", LOGOUT_COOKIE_OPTIONS);
-    sendResponse(res, 200, "Logout successful", {});
-  } catch (error) {
-    next(new ErrorHandler("Internal server error", 500));
-  }
-};
-
-export const editUser = async (
-  req: IRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    console.log("getting hitt by frontend is more for us", req.body);
-    const validation = await CheckZodValidation(req.body, editUserSchema, next);
-    console.log("failed Validation", validation);
-    if (validation && !validation.success) {
-      console.log("failed Validation");
-      return next(new ErrorHandler(validation.error.errors[0].message, 400));
-    }
-    console.log("getting hitt by frontend 2", req.user);
-    const id = req.user?._id;
-    console.log("id is", id);
-    const profilePicture = req.file as Express.MulterS3.File | undefined;
-    const {
-      name,
-      email,
-      phone,
-      password,
-      role,
-      latitude,
-      longitude,
-      add_address,
-    } = validation.data;
-
-    const updates: Record<string, any> = {};
-    if (name) updates.name = name.trim();
-    if (
-      latitude !== undefined &&
-      longitude !== undefined &&
-      longitude != null &&
-      latitude != null
-    ) {
-      updates["address.location"] = {
-        type: "Point",
-        coordinates: [longitude, latitude], // Remember: MongoDB stores [longitude, latitude]
-      };
-    }
-    if (email) updates.email = email.trim();
-    if (phone) updates.phone = phone.trim();
-    if (add_address != undefined && add_address != null)
-      updates.add_address = add_address.trim();
-    console.log("check point");
-    if (role) updates.role = role;
-    if (password) updates.password = await bcrypt.hash(password, 10);
-    if (profilePicture?.location) updates.image = profilePicture.location;
-
-    if (!Object.keys(updates).length)
-      return next(new ErrorHandler("No updates provided", 400));
-    console.log("hitting update");
-    const user = await User.findByIdAndUpdate(id, updates, { new: true });
-    if (!user) return next(new ErrorHandler("User not found", 404));
-    console.log("getting response till here");
-    sendResponse(res, 200, "User updated successfully", user);
+    const { token, title, body } = req.body;
+    const result = await getAccessToken();
+    // You can use the access token here to make any API calls or send notifications
+    res.json({ success: true, message: "Notification sent", result });
   } catch (error: any) {
-    console.log(error.message);
-    next(new ErrorHandler("Internal server error", 500));
+    console.error("Error sending notification:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
-};
+});
 
-export const deleteUser = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+app.get("/test", async (req, res, next): Promise<void> => {
   try {
-    const { user_id } = req.params;
-    const user = await User.findByIdAndDelete(user_id);
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
+    const redis = createRedisClient();
+    const pattern = "service_providers:*";
 
-    res.clearCookie("token", LOGOUT_COOKIE_OPTIONS);
-    res.status(200).json({ message: "User deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-export const getUserProfile = async (
-  req: IRequest,
-  res: Response
-): Promise<void> => {
-  try {
-    const u = req.user;
-    sendResponse(res, 201, "Profile View", u);
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-
-// Aadhaar Verification
-export const verifyAadhaar = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    // Validate Input
-    sendResponse(res, 201, "Aadhaar verified successfully!", {});
-    return;
-    const parsedData = aadhaarSchema.safeParse(req.body);
-    if (!parsedData.success) {
-      next(new ErrorHandler("Verification failed", 302));
-      return;
-    }
-
-    const { aadhaarNumber } = parsedData?.data || {};
-
-
-    // Call Aadhaar Verifier API
-    const response = await fetch(
-      `${process.env.AADHAAR_VERIFIER_API_URL}/verify`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.AADHAAR_API_KEY}`,
-        },
-        body: JSON.stringify({ aadhaarNumber }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (response.ok) {
-      sendResponse(res, 201, "Aadhaar verified successfully!", { data });
-      return;
-    } else {
-      next(new ErrorHandler(data.message || "Aadhaar verification failed.", 404));
-      return;
-    }
-  } catch (error:any) {
-    console.error("Aadhaar verification error:", error);
-    next(new ErrorHandler(error.message, 501));
-    return;
-  }
-};
-
-// Send OTP to Aadhaar-linked Mobile
-export const sendAadhaarOTP = async (
-  req: Request,
-  res: Response,
-  nex: NextFunction
-): Promise<void> => {
-  try {
-    // Validate Input
-    res
-      .status(200)
-      .json({ success: true, message: "OTP sent successfully!", data: {otp:"123456"} } );
-    return;
-    const parsedData = aadhaarOtpSchema.safeParse(req.body);
-    if (!parsedData.success) {
-       res
-        .status(400)
-         .json({ success: false, message: parsedData?.error?.errors });
-      return;
-    }
-
-    const { aadhaarNumber } = parsedData?.data || {};
-
-    // Call Aadhaar Verifier API to send OTP
-    const response = await fetch(
-      `${process.env.AADHAAR_VERIFIER_API_URL}/send-otp`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.AADHAAR_API_KEY}`,
-        },
-        body: JSON.stringify({ aadhaarNumber }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (response.ok) {
-       res
-        .status(200)
-         .json({ success: true, message: "OTP sent successfully!", data });
-      return;
-    } else {
-      res.status(400).json({
-        success: false,
-        message: data.message || "Failed to send OTP.",
-      });
-      return
-    }
-  } catch (error) {
-    console.error("OTP sending error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error." });
-    return;
-  }
-};
-
-// Verify OTP
-export const verifyAadhaarOTP = async (req: Request, res: Response, nex: NextFunction):Promise<void> => {
-  try {
-    // Validate Input
-    res
-      .status(200)
-      .json({ success: true, message: "OTP verified successfully!", data:{} });
-    return;
-    const parsedData = aadhaarOtpVerifySchema.safeParse(req.body);
-    if (!parsedData.success) {
+    const keys = await redis.keys(pattern);
+    if (keys.length === 0) {
       res
-        .status(400)
-        .json({ success: false, message: parsedData?.error?.errors });
-      return;
+        .status(404)
+        .json({ success: false, message: "No service providers found" });
     }
 
-    const { aadhaarNumber,otp } = parsedData?.data || {};
+    const result: Record<string, string[]> = {};
 
+    for (const key of keys) {
+      const keyType = await redis.type(key);
 
-    // Call Aadhaar Verifier API to verify OTP
-    const response = await fetch(
-      `${process.env.AADHAAR_VERIFIER_API_URL}/verify-otp`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.AADHAAR_API_KEY}`,
-        },
-        body: JSON.stringify({ aadhaarNumber, otp }),
+      if (keyType === "zset") {
+        result[key] = await redis.zrange(key, 0, -1);
+      } else {
+        console.warn(
+          `⚠️ Skipping key ${key} because it is a ${keyType}, not a sorted set.`
+        );
       }
-    );
-
-    const data = await response.json();
-
-    if (response.ok) {
-      res
-        .status(200)
-        .json({ success: true, message: "OTP verified successfully!", data });
-      return;
-    } else {
-      res
-        .status(400)
-        .json({ success: false, message: data.message || "Invalid OTP." });
-      return;
     }
-  } catch (error) {
-    console.error("OTP verification error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error." });
-    return;
+    res.status(200).json({ success: true, result });
+  } catch (error: any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
-};
+});
+
+app.post("/ready", async (req, res, next): Promise<void> => {
+  try {
+    const { latitude, longitude } = req.body;
+    const result = await getAddressFromLatLng(latitude, longitude);
+    res.status(200).json({ success: true, result });
+  } catch (error: any) {
+    console.error("❌ Error fetching all providers:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Root endpoint
+app.get("/", async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: "Service options created successfully!",
+    });
+  } catch (error) {
+    console.error("Error creating service options:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// API Routes
+app.use("/auth", otpRoutes);
+app.use("/location", locationRoutes);
+app.use("/admin", AdminRoutes);
+app.use("/cart", cartRoutes);
+app.use("/service-provider", ServiceRoutes);
+app.use("/find-provider", findProvider);
+app.use("/booking", BookingRoutes);
+app.use("/slots", slotRoutes);
+app.use("/review", reviewRoutes);
+app.use("/payment", PayemntRoutes);
+app.use("/promocode", promocode);
+
+// Error handling middleware
+app.use(errorMiddleware);
+
+if (cluster.isMaster) {
+  // Master process: Fork worker processes for each CPU core
+  console.log(`Master process started, forking ${numCPUs} workers`);
+
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork(); // Create a new worker for each CPU core
+  }
+
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`Worker ${worker.process.pid} died`);
+    cluster.fork(); // Fork a new worker if one dies
+  });
+} else {
+  // Worker processes (handles requests)
+  const server = app.listen(port, () => {
+    console.log(`Worker ${process.pid} is running on http://localhost:${port}`);
+  });
+
+  // WebSocket server setup
+  wss = new WebSocketServer({ server: server });
+  // Store connected providers
+  connectedProviders = new Map<string, WebSocket>();
+
+  wss.on("connection", async (ws: any, req:any) => {
+    console.log("📡 New WebSocket Connection");
+
+    ws.on("message", async (message: any) => {
+      // Your logic here
+      const { type } = JSON.parse(message);
+      if (type == "Booking-Confirmed") {
+        console.log("ws", ws);
+        const { providerId, userId } = JSON.parse(message);
+        const result1 = await createRedisClient().set(
+          `socket:${userId}`,
+          providerId
+        );
+        const result2 = await createRedisClient().set(
+          `socket:${providerId}`,
+          userId
+        );
+        console.log("Set Provider and User In Redis", result1, result2);
+      } else if (type == "First-Connection") {
+        console.log("Exchange The ids");
+        const { id } = JSON.parse(message);
+        connectedProviders.set(id, ws);
+      } else if (type == "Realtime-Update") {
+        const { id, latitude, longitude } = JSON.parse(message);
+        const myWebSocket = connectedProviders.get(id);
+        const otherId = await createRedisClient().get(`socket:${id}`);
+        if (!otherId) {
+          console.log("Connection is unavailable");
+          return;
+        }
+        const otherWebSocket = connectedProviders.get(otherId);
+        if (otherWebSocket && otherWebSocket.readyState === WebSocket.OPEN) {
+          otherWebSocket.send(
+            JSON.stringify({
+              type: "get-Real-Time-Update",
+              id: id,
+              latitude: latitude,
+              longitude: longitude,
+            })
+          );
+        }
+      }
+    });
+  });
+}
