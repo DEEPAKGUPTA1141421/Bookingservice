@@ -20,6 +20,7 @@ import { CheckZodValidation, generateOtp } from "../utils/helper";
 import { IRequest } from "../middleware/authorised";
 import ServiceProvider from "../models/ServiceProviderSchema ";
 import { Admin } from "../models/AdminSchema";
+import { twilioService } from "../config/twilio";
 
 dotenv.config();
 
@@ -42,7 +43,8 @@ export const sendOtp = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    console.log("now orking")
+    console.log("now orking");
+    let firsttimeuser = false;
     const validation = CheckZodValidation(req.body, sendOtpSchema, next);
     let { phone,user_type } = validation.data;
     let role = "";
@@ -70,26 +72,30 @@ export const sendOtp = async (
         user = new User({ phone });
         user_type="User";
         await user.save();
+        firsttimeuser = true;
       } else{
         user = new ServiceProvider({ phone });
         user_type="ServiceProvider";
         await user.save();
+        firsttimeuser = true;
       }
     }
 
     await Otp.create({
       user_id: user._id,
-      user_type: role,
+      user_type: role || user_type,
       otp_code: hashedOtp,
       expires_at: expiresAt,
       typeOfOtp,
     });
-
+    // const response = await twilioService.sendSMS(phone,otp)
+    // console.log("response",response)
     console.log(`✅ OTP for ${phone} (${typeOfOtp}):`, otp);
     sendResponse(res, 200, "OTP sent successfully", {
       isNewUser: !user,
       phone: phone,
       role: role,
+      firsttimeuser
     });
   } catch (error) {
     const err = error as Error;
