@@ -9,6 +9,7 @@ import { Type } from "aws-sdk/clients/cloudformation";
 import {
   convertStringToObjectId,
   convertToHHMM,
+  eventBooking,
   getBestProvider,
 } from "../utils/helper";
 import { ServiceProviderAvailability } from "../models/ServiceProviderAvailabilitySchema";
@@ -17,6 +18,7 @@ import { Types } from "mongoose";
 import { ServiceOption } from "../models/ActualServiceSchema";
 import { updateActualService } from "./admin/actualServiceService";
 import { boolean } from "zod";
+import ServiceProvider from "../models/ServiceProviderSchema ";
 
 interface BookingData {
   userId: Types.ObjectId | any;
@@ -26,6 +28,8 @@ interface BookingData {
   start_time: string | Date; // HH:MM format
   providersList: string[]; // Array of provider IDs
   actualService: string;
+  latitude?: number,
+  longitude?:number
 }
 
 // Define allowed booking statuses
@@ -56,6 +60,8 @@ export const createBookingService = async ({
   start_time,
   providersList,
   actualService,
+  latitude,
+  longitude
 }: BookingData) => {
   try {
     console.log("service layer", userId);
@@ -68,14 +74,40 @@ export const createBookingService = async ({
     ).lean();
 
     console.log("service layer", serviceoprtiondoc);
-    const bookslot = await BookedSlot.create({
-      providers: changeprovidersList,
+    let allproviders;
+    const iseventBooking = await eventBooking(actualService);
+    console.log("iseventBooking", iseventBooking);
+    if (iseventBooking?.event) {
+      allproviders = await ServiceProvider.aggregate([
+        {
+          $geoNear: {
+            near: {
+              type: "Point",
+              coordinates: [longitude, latitude],
+            },
+            distanceField: "distance",
+            maxDistance: 2000,
+            includeLocs: "dist.location",
+            spherical: true,
+          },
+        },
+      ]);
+    }
+    let createobj = {
+      providers: iseventBooking.event ? allproviders : changeprovidersList,
       Acutalservice: actualService,
       serviceoption: convertStringToObjectId(serviceoption),
       date: date,
       start_time: start_time,
       slotTiming: duration,
-    });
+    };
+    if (iseventBooking?.event) {
+      createobj = {
+        ...createobj,
+        event: iseventBooking?.name,
+      };
+    }
+    const bookslot = await BookedSlot.create(createobj);
     console.log("create slot", bookslot);
     if (bookslot && serviceoprtiondoc && serviceoprtiondoc.discount_price) {
       const price = serviceoprtiondoc.price; // Total price in paisa
@@ -235,6 +267,7 @@ export const acceptBookingService = async (bookingId: string) => {
     // ✅ Remove other providers & keep only the accepting provider
     const providerId = await getBestProvider(bookedSlot.providers);
     bookedSlot.providers = [convertStringToObjectId(providerId)];
+    bookedSlot.reversedProvider = previousProviders;
     await bookedSlot.save({ session });
 
     // ✅ Update booking status to confirmed
@@ -267,19 +300,6 @@ export const acceptBookingService = async (bookingId: string) => {
     // ✅ Commit transaction (if everything is successful)
     await session.commitTransaction();
     session.endSession();
-
-    // 🔔 Notify the User
-    // const ws1 = connectedProviders.get(userId.toString());
-    // if (ws1 && ws1.readyState === 1) {
-    //   ws1.send(
-    //     JSON.stringify({
-    //       type: "BOOKING_CONFIRMED",
-    //       message: "Your booking has been confirmed!",
-    //       bookingId,
-    //       data: { userId, providerId },
-    //     })
-    //   );
-    // }
     return { success: true, message: "Booking confirmed", providerId };
   } catch (error: any) {
     await session.abortTransaction(); // Rollback on error
@@ -295,10 +315,16 @@ const ChangeBitOfProvider = async (
   date: Date
 ) => {
   try {
+    console.log("date check", date);
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0); // Set to 00:00:00 UTC
+
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999); // Set to 23:59:59 UTC
     const aviliblity = await ServiceProviderAvailability.findOne({
       provider: providerId,
       is_active: true,
-      date: date,
+      date: { $gte: startOfDay, $lt: endOfDay },
     });
 
     console.log("Main Logic", aviliblity, timeIndex, numberOfSlots);
