@@ -391,7 +391,7 @@ export const getNearbyServiceProviders = async (
       $geoNear: {
         near: {
           type: "Point",
-          coordinates: [latitude, longitude], // Correct order: [longitude, latitude]
+          coordinates: [longitude, latitude], // Correct order: [longitude, latitude]
         },
         distanceField: "distance",
         query: { actualService: { $in: [convertStringToObjectId(serviceId)] } },
