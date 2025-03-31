@@ -28,7 +28,6 @@ import { getAccessToken } from "./services/FcmService";
 import { ServiceOption } from "./models/ActualServiceSchema";
 
 const numCPUs = os.cpus().length; // Number of CPU cores
-
 // Create the Express app
 const app = express();
 app.use(cookieParser());
