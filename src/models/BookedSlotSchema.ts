@@ -10,6 +10,8 @@ interface IBookedSlot extends IBaseSchema {
   end_time: Date; // End time of booking
   slotTiming?: number;
   serviceoption: Types.ObjectId;
+  event?: "Weekly" | "Monthly";
+  reversedProvider?: Array<Types.ObjectId>;
 }
 
 // ✅ Define Mongoose Schema for BookedSlot
@@ -20,6 +22,12 @@ const BookedSlotSchema = new Schema<IBookedSlot>(
         type: Schema.Types.ObjectId,
         ref: "ServiceProvider",
         required: true,
+      },
+    ],
+    reversedProvider: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "ServiceProvider",
       },
     ],
     Acutalservice: {
@@ -35,6 +43,7 @@ const BookedSlotSchema = new Schema<IBookedSlot>(
     date: { type: Date, required: true },
     start_time: { type: Date, required: true },
     slotTiming: { type: Number },
+    event: { type: String, enum: ["Weekly", "Monthly"] },
   },
   { timestamps: true }
 );
