@@ -367,9 +367,9 @@ export const getProvidersWithinRadius = async (
       return;
     }
 
-    // Normalize date to UTC midnight to match stored dates
+    // Normalize date to UTC midnight
     const givenDate = new Date(date);
-    givenDate.setUTCHours(0, 0, 0, 0); // Ensuring we compare only the date part
+    givenDate.setUTCHours(0, 0, 0, 0);
 
     console.log("Given Date (UTC):", givenDate, serviceId, radius);
 
@@ -379,15 +379,15 @@ export const getProvidersWithinRadius = async (
         $geoNear: {
           near: {
             type: "Point",
-            coordinates: [parseFloat(latitude), parseFloat(longitude)],
-          }, // Correct order: [longitude, latitude]
+            coordinates: [parseFloat(longitude), parseFloat(latitude)],
+          },
           distanceField: "distance",
           query: {
             actualService: {
               $in: [convertStringToObjectId(serviceId)],
             },
           },
-          maxDistance: radius, // Convert km to meters
+          maxDistance: radius,
           includeLocs: "dist.location",
           spherical: true,
         },
@@ -398,15 +398,6 @@ export const getProvidersWithinRadius = async (
 
     const providerIds = serviceProviders.map((provider) => provider._id);
 
-    if (providerIds.length === 0) {
-      res.status(200).json({
-        success: true,
-        message: "No providers found in the given radius",
-        data: [],
-      });
-      return;
-    }
-
     // Fetch provider availability for the specific date
     const providerAvailabilities = await ServiceProviderAvailability.find(
       { provider: { $in: providerIds }, date: givenDate },
@@ -415,18 +406,10 @@ export const getProvidersWithinRadius = async (
 
     console.log("Provider Availabilities:", providerAvailabilities);
 
+    // Fetch service options
     const serviceOptions = await ServiceOption.find({
       actualService: convertStringToObjectId(serviceId),
     }).lean();
-
-    if (!providerAvailabilities.length) {
-      res.status(200).json({
-        success: true,
-        message: "No available providers for the selected date",
-        data: serviceOptions,
-      });
-      return;
-    }
 
     // Get the current time in UTC and calculate index
     const now = new Date();
@@ -442,21 +425,23 @@ export const getProvidersWithinRadius = async (
     for (let serviceOption of serviceOptions) {
       serviceOptionsMap[serviceOption._id.toString()] = {
         ...serviceOption,
-        providerIds: [],
+        providerIds: [], // Always initialize providerIds as an empty array
       } as IServiceOption & { providerIds: string[] };
     }
 
-    for (let provider of providerAvailabilities) {
-      for (let serviceOption of serviceOptions) {
-        let requiredSlots = serviceOption.duration / 15;
+    if (providerAvailabilities.length > 0) {
+      for (let provider of providerAvailabilities) {
+        for (let serviceOption of serviceOptions) {
+          let requiredSlots = serviceOption.duration / 15;
 
-        if (
-          checkConsecutive(provider.available_bit, timeIndex, requiredSlots)
-        ) {
-          console.log("Slot available for provider:", provider.provider);
-          serviceOptionsMap[serviceOption._id.toString()].providerIds.push(
-            provider.provider.toString()
-          );
+          if (
+            checkConsecutive(provider.available_bit, timeIndex, requiredSlots)
+          ) {
+            console.log("Slot available for provider:", provider.provider);
+            serviceOptionsMap[serviceOption._id.toString()].providerIds.push(
+              provider.provider.toString()
+            );
+          }
         }
       }
     }
@@ -475,6 +460,7 @@ export const getProvidersWithinRadius = async (
     return;
   }
 };
+
 
 const checkAvailableTimingSlots = async (
   latitude: number,
@@ -496,7 +482,7 @@ const checkAvailableTimingSlots = async (
         $geoNear: {
           near: {
             type: "Point",
-            coordinates: [latitude, longitude], // Correct order: [longitude, latitude]
+            coordinates: [longitude, latitude], // Correct order: [longitude, latitude]
           },
           distanceField: "distance",
           query: { actualService: convertStringToObjectId(serviceId) },
@@ -510,12 +496,15 @@ const checkAvailableTimingSlots = async (
     const providerIds = serviceProviders.map(
       (provider) => new mongoose.Types.ObjectId(provider._id)
     );
-    let givendateformongodbutc = new Date(givenDate);
-    givendateformongodbutc.setUTCHours(0, 0, 0, 0); // Normalize to midnight UTC
+    const startOfDay = new Date(givenDate);
+    startOfDay.setUTCHours(0, 0, 0, 0); // Set to 00:00:00 UTC
+
+    const endOfDay = new Date(givenDate);
+    endOfDay.setUTCHours(23, 59, 59, 999); // Set to 23:59:59 UTC
     const providerAvailabilities = await ServiceProviderAvailability.find(
       {
         is_active: true,
-        date: givendateformongodbutc,
+        date: { $gte: startOfDay, $lt: endOfDay },
         provider: { $in: providerIds }, // ✅ Pass providerIds directly as an array
       },
       { provider: 1, available_bit: 1 } // Select only necessary fields
@@ -667,20 +656,20 @@ export const genericOptions = async (
     const serviceProviders = await ServiceProvider.aggregate([
       {
         $geoNear: {
-          near: { type: "Point", coordinates: [latitude, longitude] }, // Correct order
+          near: { type: "Point", coordinates: [longitude, latitude] }, // Correct order
           distanceField: "distance",
           query: {
             actualService: {
               $in: [convertStringToObjectId(serviceId)],
             },
           },
-          maxDistance: 3000, // 3km radius
+          maxDistance: 3000,
           includeLocs: "dist.location",
           spherical: true,
         },
       },
     ]);
-    console.log("serviceProviders", serviceProviders);
+    console.log("serviceProviders", serviceProviders,latitude,longitude);
     const providerIds = serviceProviders.map((provider) => provider._id);
     console.log("providerIds", providerIds,dateOnly);
 
@@ -693,6 +682,7 @@ export const genericOptions = async (
 
     const providerAvailabilities = await ServiceProviderAvailability.find(
       {
+        is_active: true,
         provider: { $in: providerIds },
         date: { $gte: startOfDay, $lt: endOfDay }, // Match only the date part
       },
