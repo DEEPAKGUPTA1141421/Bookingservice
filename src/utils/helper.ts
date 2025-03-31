@@ -3,6 +3,8 @@ import ErrorHandler from "../config/GlobalerrorHandler";
 import mongoose, { ObjectId, Types } from "mongoose";
 import { z } from "zod";
 import { createRedisClient } from "../config/redisCache";
+import ServiceProvider from "../models/ServiceProviderSchema ";
+import { ActualService } from "../models/ActualServiceSchema";
 export const CheckZodValidation = (
   body: any,
   schema: any,
@@ -280,5 +282,16 @@ export const getBestProvider = async (
   // rest logic later
   return providers[0];
 };
+
+
+export const eventBooking = async (serviceId: string) => {
+  const eventservice = ["67d5a582ce8a7affff6ade33", "67a7990178809143300087bd"];
+  if (eventservice.includes(serviceId)==false) {
+    return { event: false, name: "" };
+  }
+  const actualService = await ActualService.findById(convertStringToObjectId(serviceId)).lean();
+  let name = actualService?.name == "Every Day Cleaning" ? "Monthly" : "Weekly";
+  return {event:true,name:name}
+}
 
 
