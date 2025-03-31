@@ -73,6 +73,7 @@ export const createBooking = async (
       providersList,
       actualService,
       isScheduled,
+      event
     } = req.body;
     console.log("isScheduled", isScheduled);
     if (isScheduled) {
@@ -81,6 +82,9 @@ export const createBooking = async (
       start_time.setMinutes(start_time.getMinutes() + 330);
       console.log("yes Scheduled", start_time);
     }
+    const user = await User.findById(userId);
+    const latitude = user?.address?.location?.coordinates[0];
+    const longitude = user?.address?.location?.coordinates[1];
     const booking = await createBookingService({
       userId,
       date,
@@ -89,6 +93,8 @@ export const createBooking = async (
       start_time,
       providersList,
       actualService,
+      latitude,
+      longitude
     });
     if (booking.success) {
       sendResponse(res, 201, "Booking Initiated SuccesFully", booking);
